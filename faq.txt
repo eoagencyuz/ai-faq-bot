@@ -1,34 +1,45 @@
 UNIVERSITET HAQIDA
-Nomi: Qarshi Xalqaro Universiteti (Karshi International University, KIU). Xususiy universitet, Qarshi shahrida joylashgan.
+Nomi: Qarshi xalqaro universiteti (Karshi International University, KIU). Nodavlat (xususiy) oliy ta'lim tashkiloti, Qashqadaryo viloyati, Qarshi shahrida joylashgan.
+Tashkil etilgan: 2022-yil. Akkreditatsiya sanasi: 2022-yil 29-iyul.
+Faoliyat turi: universitet. Asosiy ixtisoslashuvi: ijtimoiy-gumanitar fanlar, ustuvor yo'nalishi: boshlang'ich ta'lim.
 Shiori: «Bilim — chegara bilmaydi».
-Tashkil etilgan yili: 2022-yil, Qarshi shahrida.
 Bitiruvchilarga davlat namunasidagi diplom beriladi.
-Ta'lim darajalari: bakalavriat, magistratura, ikkinchi oliy ta'lim, MBA va qisqa muddatli kurslar.
-Ta'lim shakllari: kunduzgi va masofaviy (masofaviy ta'limda dunyoning istalgan joyidan o'qish mumkin).
 Rasmiy sayt: https://kiu.uz
 Onlayn qabul sayti: https://qabul.kiu.uz
+Talabalar uchun elektron platforma: https://digital.kiu.uz (KIU e-university)
+
+LITSENZIYA VA RASMIY HUJJATLAR
+Universitet Oliy ta'lim, fan va innovatsiyalar vazirligi litsenziyasi asosida faoliyat yuritadi. Litsenziya Milliy akkreditatsiya va reyting agentligi sahifasida litsenziyalar reyestri orqali ham ko'rsatilgan.
+kiu.uz saytidagi "Rasmiy hujjatlar" bo'limida: Qarshi Xalqaro Universiteti MCHJ guvohnomasi, Oliy ta'lim, fan va innovatsiyalar vazirligi litsenziyasi, Davlat inspeksiyasi litsenziyasi, 2026-yilgi jamoa shartnomasi, odob-axloq kodeksi, ichki mehnat tartibi qoidalari va boshqa hujjatlar joylashtirilgan.
 
 MANZIL VA ALOQA
 1-kampus: Qashqadaryo viloyati, Qarshi shahri, Bahodir Sherqulov ko'chasi, 7-uy.
 2-kampus: Qashqadaryo viloyati, Qarshi shahri, Mustaqillik ko'chasi, 71-uy.
 Barcha savollar uchun telefon: +998 55 500 99 44
-Ish vaqti: Dushanbadan Shanbagacha, 09:00 – 20:00.
+Qabul komissiyasi ish vaqti: Dushanbadan Shanbagacha, 09:00 – 20:00.
+
+RASMIY STATISTIKA (Milliy akkreditatsiya va reyting agentligi, 2026-yil 26-iyun holatiga)
+Bu raqamlarni aytganda manbasi va sanasini ham ayt.
+- Jami talabalar: 6 181 nafar (bakalavr — 6 052, magistratura — 129)
+- Ta'lim shakli bo'yicha: kunduzgi — 33,2%, sirtqi — 66,8%
+- Professor-o'qituvchilar: 100 nafar, o'rtacha yoshi — 37,1, ilmiy salohiyat — 17%
+- Bitiruvchilar soni: 508
+- Bitiruvchilar bandlik darajasi: 84,3%
+- O'rtacha ishga joylashish tezligi: 1 oy 4 kun
+- Bitiruvchilarning o'rtacha ish haqi: taxminan 4 mln so'm
+- Bitiruvchi sifat indeksi: 59,8
 
 QABUL 2026–2027
-Qabul 2026–2027 o'quv yili uchun ochiq.
+Qabul 2026–2027 o'quv yili uchun qabul.kiu.uz portalida olib boriladi.
 Qanday qabul bo'lish (4 qadam):
 1. Ro'yxatdan o'tish — qabul.kiu.uz saytida telefon raqam bilan 1 daqiqada.
 2. Ma'lumot kiritish — pasport, ta'lim ma'lumoti va yo'nalish onlayn to'ldiriladi.
 3. Imtihon / suhbat — onlayn yoki kampusda belgilangan vaqtda.
 4. Qabul + shartnoma — natijani ko'rib, shartnoma tuziladi.
 Saytda ro'yxatdan o'tish bepul.
+Imtihon fanlari, qabul muddatlari va kerakli hujjatlar ro'yxati bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
 
-TO'LOV
-Kontraktni to'lash usullari: bir martada to'liq to'lash yoki bo'lib-bo'lib to'lash.
-Ta'lim krediti: davlat ko'magi bilan, yillik 14% stavkada.
-To'lov muddatlari va bo'lib to'lash grafigi bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
-
-TA'LIM YO'NALISHLARI VA KONTRAKT NARXLARI (bakalavr, kunduzgi, o'zbek tilida)
+BAKALAVRIAT YO'NALISHLARI VA KONTRAKT NARXLARI (2026–2027, kunduzgi, o'zbek tilida, yillik)
 - 60110200 Maktabgacha ta'lim — 3 yil — 12 850 000 so'm
 - 60110400 Boshlang'ich ta'lim — 4 yil — 12 850 000 so'm
 - 60111100 Milliy g'oya, ma'naviyat asoslari va huquq ta'limi — 4 yil — 12 850 000 so'm
@@ -43,14 +54,67 @@ TA'LIM YO'NALISHLARI VA KONTRAKT NARXLARI (bakalavr, kunduzgi, o'zbek tilida)
 - 60610400 Dasturiy injiniring — 4 yil — 12 850 000 so'm
 - 60721100 Neft va gaz ishi — 4 yil — 12 850 000 so'm
 
+MAGISTRATURA (2026–2027, yillik)
+- Lingvistika (ingliz tili) — 2 yil — 18 000 000 so'm
+- Lingvistika (rus tili) — 2 yil — 18 000 000 so'm
+- Lingvistika (nemis tili) — 2 yil — 18 000 000 so'm
+- Lingvistika (o'zbek tili) — 2 yil — 18 000 000 so'm
+- Iqtisodiyot — 2 yil — 18 000 000 so'm
+Jami qabul portalida 18 ta dastur: 13 ta bakalavriat va 5 ta magistratura.
+
+TA'LIM SHAKLLARI
+Universitetda kunduzgi va sirtqi shaklda talabalar o'qiydi (rasmiy statistikaga ko'ra talabalarning 66,8% sirtqi). 2026–2027 qabul portalida bakalavriat yo'nalishlari kunduzgi shaklda ko'rsatilgan. Sirtqi yoki boshqa shakllarda qabul va ularning narxlari bo'yicha +998 55 500 99 44 raqamiga qo'ng'iroq qilib aniqlashtirish kerak.
+
 YO'NALISHLAR QISQACHA
 - Maktabgacha ta'lim: xususiy bog'cha ochish imkoniyati, sohada talab yuqori.
-- Boshlang'ich ta'lim: barqaror ish o'rni, o'z metodikasini yaratish imkoniyati.
+- Boshlang'ich ta'lim: barqaror ish o'rni, o'z metodikasini yaratish imkoniyati. Universitetning ustuvor yo'nalishi.
 - Milliy g'oya va huquq ta'limi: davlat va jamoat tashkilotlarida ishlash imkoniyati.
+- Filologiya (ingliz, nemis, rus, o'zbek): o'qituvchi, tarjimon, xalqaro kompaniyalarda ishlash.
+- Psixologiya: maktab, klinika, HR va konsalting sohalarida ishlash.
 - Neft va gaz ishi: yuqori maoshli soha, xalqaro loyihalarda ishtirok.
 - Iqtisodiyot: bank, davlat, biznes, xalqaro savdoda ishlash; mikro/makroiqtisodiyot, soliq, investitsiya o'rganiladi.
+- Buxgalteriya hisobi, Moliya va moliyaviy texnologiyalar: bank, audit, soliq, fintech kompaniyalar.
 - Dasturiy injiniring: dasturiy ta'minot yaratish, ma'lumotlar bazalari, IT loyihalar.
 
-BOSHQA XIZMATLAR
-Universitetda masofaviy ta'lim, kutubxona, to'garaklar, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud. Talabalar uchun elektron platforma: https://digital.kiu.uz (KIU e-university).
-Batafsil ma'lumot uchun +998 55 500 99 44 raqamiga qo'ng'iroq qiling.
+TO'LOV
+Kontraktni to'lash usullari: bir martada to'liq to'lash yoki bo'lib-bo'lib to'lash.
+Ta'lim krediti: davlat ko'magi bilan, yillik 14% stavkada.
+To'lov muddatlari va bo'lib to'lash grafigi bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
+
+GRANTLAR, CHEGIRMALAR VA STIPENDIYALAR
+- KIU'da grant o'rinlari mavjud (universitet "milliard so'mlik grant o'rinlari" deb e'lon qiladi). Grant shartlari va unga qanday talabgor bo'lish bo'yicha +998 55 500 99 44 raqamidan aniqlashtirish kerak.
+- Universitet tanlov va tadbirlarida kontrakt va yotoqxona uchun chegirmalar beriladi. Masalan, 2026-yilgi "Mutolaa" kitobxonlik marafonida: 1–2-o'rin — kontraktga 50–100% chegirma, 3-o'rin — talabalar turar joyi (TTJ) uchun yillik 100% chegirma, 4–5-o'rin — TTJ uchun yillik 50% chegirma.
+- Talabalar Prezident va nomli davlat stipendiyalari tanlovlarida qatnashadi (2026–2027 o'quv yili uchun saralash bosqichi e'lon qilingan).
+- Talabalar hududiy stipendiyalarni ham yutadi: 2025–2026 o'quv yilida KIU Boshlang'ich ta'lim yo'nalishi talabasi Qashqadaryo viloyati hokimi stipendiyasi g'olibi bo'lgan (sentabrdan iyungacha har oy BHMning 3 baravari miqdorida qo'shimcha stipendiya).
+
+YOTOQXONA
+Talabalar turar joyi (TTJ) mavjud. Yotoqxona narxi, joylar soni va sharoiti bo'yicha +998 55 500 99 44 raqamidan aniqlashtirish kerak.
+
+XALQARO IMKONIYATLAR
+- Xalqaro hamkorlik, talabalar almashinuvi, xorijiy universitetlar bilan hamkorlik va qo'shma diplom dasturlari universitetning asosiy yo'nalishlaridan.
+- Real misol: 2026-yilda KIU talabalari uchun Malayziyadagi INTI International University'da akademik mobillik dasturi o'tkazildi (18-maydan 3-avgustgacha). Shartlari: o'qish grant asosida, to'lov olinmaydi, yotoqxona bepul; talablar — ingliz tili kamida B2, GPA 70 va undan yuqori.
+- Yangi xalqaro dasturlar (almashinuv, Work & Travel va boshqalar) haqida kiu.uz yangiliklari yoki +998 55 500 99 44 orqali bilish mumkin.
+
+TALABALAR HAYOTI VA RIVOJLANISH
+- 16 ta rivojlanish to'garagi mavjud.
+- Intellektual loyihalar: Zakovat, Brain Ring, Munozara, "Mutolaa" kitobxonlik marafoni, olimpiada va tanlovlar.
+- Tadbirlar: Talaba Fest (sport, musiqa, karaoke, robototexnika, talabalar teatri, Zakovat, Munozara, milliy taomlar va boshqalar), Milliy Fashion Show (milliy liboslar va podium namoyishlari), diplom topshirish marosimi.
+- Universitetda masofaviy ta'lim, kutubxona, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud.
+
+TA'LIM MODELI VA INFRATUZILMA
+- Zamonaviy ta'lim: xalqaro standartlarga mos o'quv dasturlari va zamonaviy pedagogik metodlar.
+- Amaliy mashg'ulotlar: real loyihalar, laboratoriyalar.
+- Karyera qo'llab-quvvatlash: bitiruvchilarga ishga joylashishda yordam (rasmiy statistikada bandlik — 84,3%).
+- Texnologik resurslar: tezkor internet, zamonaviy auditoriyalar, onlayn platformalar, elektron kutubxona.
+- Ustozlar: fan doktorlari, professorlar va soha mutaxassislari.
+- Ikki kampus: Bahodir Sherqulov ko'chasi 7-uy va Mustaqillik ko'chasi 71-uy.
+
+NEGA AYNAN KIU? (abituriyent va ota-onalar so'rasa, shu faktlarga tayan)
+- 13 ta bakalavriat va 5 ta magistratura dasturi: pedagogika, filologiya, iqtisod va moliya, IT, neft-gaz.
+- Rasmiy statistikaga ko'ra bitiruvchilarning 84,3% ishga joylashgan, o'rtacha 1 oy 4 kunda.
+- Xalqaro imkoniyatlar: masalan, Malayziyadagi INTI International University'da grant asosidagi akademik mobillik.
+- Grant o'rinlari, stipendiyalar va tanlovlarda kontrakt/yotoqxona chegirmalari.
+- 16 ta rivojlanish to'garagi, Zakovat, Brain Ring, Mutolaa, Talaba Fest kabi faol talabalik hayoti.
+- Qulay to'lov: bo'lib to'lash va 14% lik ta'lim krediti.
+- Onlayn qabul: ro'yxatdan o'tish 1 daqiqa, bepul.
+Boshqa universitetlarni yomonlama va ular haqida taxmin qilma — faqat KIU'ning afzalliklarini ayt.

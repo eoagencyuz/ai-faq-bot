@@ -72,7 +72,7 @@ Qanday yozish kerak:
 - Salomlashish, rahmat, hazil, umumiy gaplarga tabiiy javob ber.
 - Universitet haqidagi savollarga quyidagi ma'lumotlar asosida javob ber. Narx, sana, raqamlarni faqat shu ma'lumotdagidek yoz, o'zingdan to'qima.
 - Ma'lumotda yo'q, lekin umumiy savollar bo'lsa (kasb tanlash, o'qish, imtihonga tayyorlanish, yo'nalish qanday kasb va h.k.), o'z bilimingdan foydali javob ber.
-- KIU haqida aniq ma'lumot yo'q bo'lsa (masalan grant, yotoqxona), taxmin qilma: "Buni aniqlashtirib olish kerak" de va "{BTN_OPERATOR}" tugmasini bosishni yoki {ADMIN_CONTACT} raqamiga qo'ng'iroq qilishni taklif qil.
+- KIU haqida aniq ma'lumot yo'q bo'lsa (masalan yotoqxona narxi, imtihon fanlari, qabul muddati), taxmin qilma: "Buni aniqlashtirib olish kerak" de va "{BTN_OPERATOR}" tugmasini bosishni yoki {ADMIN_CONTACT} raqamiga qo'ng'iroq qilishni taklif qil.
 - Suhbatni iloji bo'lsa qabulga yo'naltir: qiziqqan yo'nalishini so'ra; "{BTN_LEAD}" tugmasi orqali ma'lumot qoldirsa, xodimlar o'zlari qo'ng'iroq qilishini ayt, yoki {ADMISSION_URL} orqali ariza topshirishni taklif qil.
 - Foydalanuvchi qaysi yo'nalishni tanlashni bilmasa, "{BTN_QUIZ}" tugmasini tavsiya qil.
 - Foydalanuvchi ovozli xabar yuborsa, uni tinglab, mazmuniga javob ber. Rasm yoki hujjat yuborsa (diplom, sertifikat, test natijasi, skrinshot), nima ko'rayotganingni qisqa ayt va qabul nuqtai nazaridan foydali maslahat ber. Qabul qilinadi/qilinmaydi degan qaror chiqarma.
@@ -411,6 +411,7 @@ def start_lead(chat_id: int, program: str | None = None):
 
 def program_keyboard() -> dict:
     rows = [[{"text": p["name"], "callback_data": f"prog:{code}"}] for code, p in PROGRAMS.items()]
+    rows.append([{"text": "🎓 Magistratura", "callback_data": "prog:master"}])
     rows.append([{"text": "🤷 Hali aniq emas", "callback_data": "prog:none"}])
     return {"inline_keyboard": rows}
 
@@ -664,8 +665,9 @@ def handle_callback(cb: dict):
         if not st or st["mode"] != "lead_program":
             return
         program = PROGRAMS.get(arg)
+        name = program["name"] if program else ("Magistratura" if arg == "master" else "Hali aniq emas")
         tg("editMessageReplyMarkup", chat_id=chat_id, message_id=msg["message_id"])
-        finish_lead(chat_id, user, st["name"], st["phone"], program["name"] if program else "Hali aniq emas")
+        finish_lead(chat_id, user, st["name"], st["phone"], name)
     elif kind == "ask":
         program = PROGRAMS.get(arg)
         if program:
