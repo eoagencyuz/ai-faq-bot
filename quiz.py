@@ -1,4 +1,6 @@
 """Yo'nalish tanlash testi va faq.txt'dan yo'nalishlar ro'yxati."""
+from __future__ import annotations
+
 import re
 
 # "- 60610400 Dasturiy injiniring — 4 yil — 12 850 000 so'm"

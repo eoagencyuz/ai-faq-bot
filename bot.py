@@ -5,6 +5,8 @@ Universitet ma'lumotlarini faq.txt fayliga yozing — bot shundan javob beradi.
 Imkoniyatlar: AI suhbat (matn, ovoz, rasm), ariza yig'ish, operator bilan jonli chat,
 yo'nalish tanlash testi, admin uchun /stats, /leads, /broadcast.
 """
+from __future__ import annotations
+
 import base64
 import html
 import logging
@@ -31,7 +33,10 @@ ADMIN_CONTACT = os.environ.get("ADMIN_CONTACT", "+998 55 500 99 44")
 # Ixtiyoriy: webhook so'rovlarini tekshirish uchun maxfiy kalit (A-Z, a-z, 0-9, _ -)
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 # Admin guruh ID (masalan -1001234567890): arizalar, operator chat va admin buyruqlari shu yerda
-ADMIN_CHAT_ID = int(os.environ["ADMIN_CHAT_ID"]) if os.environ.get("ADMIN_CHAT_ID") else None
+_admin = os.environ.get("ADMIN_CHAT_ID", "").strip()
+ADMIN_CHAT_ID = int(_admin) if re.fullmatch(r"-?\d+", _admin) else None
+if _admin and ADMIN_CHAT_ID is None:
+    log.error("ADMIN_CHAT_ID noto'g'ri: %r (raqam bo'lishi kerak, masalan -1001234567890)", _admin)
 NOTIFY_NEW_USERS = os.environ.get("NOTIFY_NEW_USERS") == "1"
 ADMISSION_URL = "https://qabul.kiu.uz"
 SITE_URL = "https://kiu.uz"
@@ -763,14 +768,13 @@ def webhook():
     return "ok"
 
 
-@app.get("/set-webhook")
-def set_webhook():
-    base = os.environ.get("RENDER_EXTERNAL_URL") or request.host_url.rstrip("/")
+def register_webhook(base: str) -> dict | None:
     payload = {"url": f"{base}/webhook/{TELEGRAM_TOKEN}",
-               "allowed_updates": ["message", "callback_query"], "drop_pending_updates": True}
+               "allowed_updates": ["message", "callback_query"], "drop_pending_updates": False}
     if WEBHOOK_SECRET:
         payload["secret_token"] = WEBHOOK_SECRET
-    r = http.post(f"{TG_API}/setWebhook", json=payload, timeout=20)
+    result = tg("setWebhook", **payload)
+    log.info("Webhook o'rnatildi: %s", "ok" if result else f"xato {last_error()}")
     tg("setMyCommands", commands=[
         {"command": "start", "description": "Boshlash / suhbatni yangilash"},
         {"command": "quiz", "description": "Yo'nalish tanlash testi"},
@@ -787,7 +791,40 @@ def set_webhook():
             {"command": "broadcast", "description": "Hammaga xabar yuborish"},
             {"command": "help", "description": "Admin yordam"},
         ])
-    return r.text
+    return result
+
+
+@app.get("/set-webhook")
+def set_webhook():
+    base = os.environ.get("RENDER_EXTERNAL_URL") or request.host_url.rstrip("/")
+    return "Webhook o'rnatildi ✅" if register_webhook(base) else f"Xato: {last_error()} — /status ni oching"
+
+
+@app.get("/status")
+def status():
+    """Diagnostika: bot va webhook holati (token ko'rsatilmaydi)."""
+    me = tg("getMe")
+    info = tg("getWebhookInfo") or {}
+    url = info.get("url", "")
+    token_ok = "✅ @" + me["username"] if me else "❌ noto'g'ri yoki ulanib bo'lmadi"
+    hook_ok = ("✅ o'rnatilgan" if url.endswith("/webhook/" + TELEGRAM_TOKEN)
+               else "❌ o'rnatilmagan — /set-webhook ni oching")
+    lines = [
+        f"Telegram token: {token_ok}",
+        f"Webhook: {hook_ok}",
+        f"Kutayotgan xabarlar: {info.get('pending_update_count', '?')}",
+        "Telegram'dagi oxirgi xato: " + (info.get("last_error_message") or "yo'q"),
+        f"Admin guruh: {ADMIN_CHAT_ID or 'sozlanmagan'}",
+        f"Yo'nalishlar (faq.txt): {len(PROGRAMS)}",
+        f"Baza: {db.DB_PATH}",
+    ]
+    return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
+
+
+# Render'da deploydan so'ng webhook avtomatik o'rnatiladi
+if os.environ.get("RENDER_EXTERNAL_URL"):
+    threading.Thread(target=register_webhook, args=(os.environ["RENDER_EXTERNAL_URL"].rstrip("/"),),
+                     daemon=True).start()
 
 
 if __name__ == "__main__":

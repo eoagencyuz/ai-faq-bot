@@ -1,4 +1,6 @@
 """SQLite: foydalanuvchilar, arizalar, statistika va operator yozishmalari."""
+from __future__ import annotations
+
 import os
 import sqlite3
 import threading
@@ -7,7 +9,12 @@ import time
 DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(__file__), "bot.db"))
 
 _lock = threading.Lock()
-_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+try:
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+    _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+except (OSError, sqlite3.Error):
+    DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot.db")
+    _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 _conn.row_factory = sqlite3.Row
 _conn.executescript("""
 PRAGMA journal_mode=WAL;
