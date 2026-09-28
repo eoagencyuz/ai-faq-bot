@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS relay (
     admin_msg_id INTEGER PRIMARY KEY, user_id INTEGER
 );
+CREATE TABLE IF NOT EXISTS knowledge (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, author TEXT, created_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS gaps (
+    user_id INTEGER, question TEXT, created_at INTEGER
+);
 CREATE INDEX IF NOT EXISTS events_time ON events(created_at);
 """)
 
@@ -116,3 +122,39 @@ def stats() -> dict:
         "by_kind": {r["kind"]: r["n"] for r in _query(
             "SELECT kind, COUNT(*) n FROM events WHERE created_at>=? GROUP BY kind", (week,))},
     }
+
+
+# --- Bilim bazasi (admin /addinfo orqali qo'shadi) ---
+_knowledge_cache: list | None = None
+
+
+def list_knowledge():
+    global _knowledge_cache
+    if _knowledge_cache is None:
+        _knowledge_cache = _query("SELECT * FROM knowledge ORDER BY id")
+    return _knowledge_cache
+
+
+def add_knowledge(text: str, author: str) -> int:
+    global _knowledge_cache
+    cur = _exec("INSERT INTO knowledge (text, author, created_at) VALUES (?, ?, ?)", (text, author, int(time.time())))
+    _knowledge_cache = None
+    return cur.lastrowid
+
+
+def delete_knowledge(kid: int) -> bool:
+    global _knowledge_cache
+    cur = _exec("DELETE FROM knowledge WHERE id=?", (kid,))
+    _knowledge_cache = None
+    return cur.rowcount > 0
+
+
+# --- Bot javob topa olmagan savollar ---
+def add_gap(user_id: int, question: str):
+    _exec("INSERT INTO gaps (user_id, question, created_at) VALUES (?, ?, ?)", (user_id, question, int(time.time())))
+
+
+def recent_gaps(limit: int = 20):
+    since = int(time.time()) - 30 * 86400
+    return _query("""SELECT question, COUNT(*) n, MAX(created_at) last FROM gaps WHERE created_at>=?
+                     GROUP BY lower(question) ORDER BY n DESC, last DESC LIMIT ?""", (since, limit))

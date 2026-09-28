@@ -61,6 +61,8 @@ BTN_CANCEL = "❌ Bekor qilish"
 BTN_OPERATOR_END = "🔚 Operator bilan suhbatni yakunlash"
 BTN_SHARE_PHONE = "📱 Raqamni yuborish"
 
+NOINFO = "[NOINFO]"
+
 SYSTEM_PROMPT = f"""Sen Qarshi Xalqaro Universiteti (KIU) qabul bo'limining xushmuomala maslahatchisisan. Telegram'da abituriyentlar va ota-onalar bilan yozishasan.
 
 Qanday yozish kerak:
@@ -76,10 +78,21 @@ Qanday yozish kerak:
 - Foydalanuvchi ovozli xabar yuborsa, uni tinglab, mazmuniga javob ber. Rasm yoki hujjat yuborsa (diplom, sertifikat, test natijasi, skrinshot), nima ko'rayotganingni qisqa ayt va qabul nuqtai nazaridan foydali maslahat ber. Qabul qilinadi/qilinmaydi degan qaror chiqarma.
 - Agar kimdir jiddiy so'rasa "Siz botmisiz / sun'iy intellektmisiz?", yolg'on gapirma: "Men KIU qabul bo'limining AI yordamchisiman, kerak bo'lsa sizni xodimlarimiz bilan bog'lab qo'yaman" deb ayt.
 - Universitet va ta'limga aloqasi yo'q mavzularda (siyosat, kod yozish, uy vazifasini bajarib berish va h.k.) muloyimlik bilan rad et va suhbatni KIU'ga qaytar.
+- "Qo'shimcha ma'lumotlar" bo'limidagi ma'lumotlar eng yangi hisoblanadi: FAQ bilan zid kelsa, ularga tayan.
+- Agar foydalanuvchi KIU haqida so'rasa-yu, javob quyidagi ma'lumotlarda bo'lmasa, javobing oxiriga alohida qatorga {NOINFO} yoz (foydalanuvchi buni ko'rmaydi, xodimlar bazani to'ldirishi uchun kerak).
 
 === FAQ ===
 {FAQ}
 === FAQ tugadi ==="""
+
+
+def system_prompt() -> str:
+    """FAQ + admin guruhda /addinfo orqali qo'shilgan ma'lumotlar."""
+    extra = db.list_knowledge()
+    if not extra:
+        return SYSTEM_PROMPT
+    items = "\n".join(f"- {r['text']}" for r in extra)
+    return f"{SYSTEM_PROMPT}\n\n=== Qo'shimcha ma'lumotlar (eng yangi) ===\n{items}\n=== Tugadi ==="
 
 MAIN_KEYBOARD = {
     "keyboard": [[{"text": BTN_PROGRAMS}, {"text": BTN_QUIZ}],
@@ -256,13 +269,14 @@ def download_file(file_id: str) -> bytes | None:
 
 
 # ======================= Gemini =======================
-def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None) -> str:
-    """parts — joriy xabar (matn va/yoki fayl). Tarixga faqat history_text (yoki matn qismlari) yoziladi."""
+def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None) -> tuple[str, bool]:
+    """parts — joriy xabar (matn va/yoki fayl). Tarixga faqat history_text (yoki matn qismlari) yoziladi.
+    (javob, bazada ma'lumot topilmadimi) qaytaradi."""
     with state_lock:
         msgs = list(history.get(chat_id, []))
     contents = msgs + [{"role": "user", "parts": parts}]
     body = {
-        "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "system_instruction": {"parts": [{"text": system_prompt()}]},
         "contents": contents[-MAX_HISTORY:],
         "generationConfig": {"temperature": 0.6, "maxOutputTokens": 1024},
     }
@@ -285,7 +299,9 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
             break
         time.sleep(2)
     if not answer:
-        return ERROR_TEXT
+        return ERROR_TEXT, False
+    noinfo = NOINFO in answer
+    answer = answer.replace(NOINFO, "").strip() or ERROR_TEXT
     if history_text is None:
         history_text = " ".join(p["text"] for p in parts if "text" in p)
     msgs += [{"role": "user", "parts": [{"text": history_text}]},
@@ -295,7 +311,7 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
         history.move_to_end(chat_id)
         while len(history) > MAX_CHATS:
             history.popitem(last=False)
-    return answer
+    return answer, noinfo
 
 
 def reply_with_ai(chat_id: int, user_id: int, parts: list[dict], history_text: str | None = None,
@@ -304,7 +320,11 @@ def reply_with_ai(chat_id: int, user_id: int, parts: list[dict], history_text: s
         send(chat_id, RATE_LIMIT_TEXT)
         return
     tg("sendChatAction", chat_id=chat_id, action=action)
-    send(chat_id, ask_gemini(chat_id, parts, history_text), formatted=False)
+    answer, noinfo = ask_gemini(chat_id, parts, history_text)
+    send(chat_id, answer, formatted=False)
+    if noinfo:
+        question = history_text or " ".join(p["text"] for p in parts if "text" in p)
+        db.add_gap(chat_id, question[:500])
 
 
 # ======================= Yordamchi funksiyalar =======================
@@ -689,10 +709,51 @@ def handle_admin(msg: dict):
             return
         executor.submit(broadcast, reply["message_id"] if reply else None, body)
         send(ADMIN_CHAT_ID, "📣 Yuborish boshlandi...", reply_to=msg["message_id"])
+    elif command == "/addinfo":
+        body = text[len(text.split()[0]):].strip()
+        if not body and reply:
+            body = (reply.get("text") or reply.get("caption") or "").strip()
+        if len(body) < 5:
+            send(ADMIN_CHAT_ID, "Foydalanish: <code>/addinfo Yotoqxona bor, oyiga 500 000 so'm.</code>\n"
+                                "Yoki matnli xabarga reply qilib <code>/addinfo</code> yozing.",
+                 reply_to=msg["message_id"])
+            return
+        kid = db.add_knowledge(body[:3000], (msg.get("from") or {}).get("first_name", ""))
+        send(ADMIN_CHAT_ID, f"✅ Bazaga qo'shildi (#{kid}). Bot endi shu ma'lumot asosida javob beradi.",
+             reply_to=msg["message_id"])
+    elif command == "/info":
+        rows = db.list_knowledge()
+        if not rows:
+            send(ADMIN_CHAT_ID, "Qo'shimcha ma'lumotlar yo'q. <code>/addinfo matn</code> bilan qo'shing.",
+                 reply_to=msg["message_id"])
+            return
+        lines = [f"<b>#{r['id']}</b> {html.escape(r['text'])}" for r in rows]
+        send(ADMIN_CHAT_ID, "📚 <b>Qo'shimcha ma'lumotlar</b> (o'chirish: <code>/delinfo raqam</code>)\n\n"
+             + "\n\n".join(lines), reply_to=msg["message_id"])
+    elif command == "/delinfo":
+        arg = text[len(text.split()[0]):].strip().lstrip("#")
+        ok = arg.isdigit() and db.delete_knowledge(int(arg))
+        send(ADMIN_CHAT_ID, f"🗑 #{arg} o'chirildi." if ok else "Topilmadi. Raqamni /info dan oling.",
+             reply_to=msg["message_id"])
+    elif command == "/gaps":
+        rows = db.recent_gaps(20)
+        if not rows:
+            send(ADMIN_CHAT_ID, "Hozircha javobsiz qolgan savollar yo'q 👍", reply_to=msg["message_id"])
+            return
+        lines = [f"• {html.escape(r['question'][:200])}" + (f" <i>(×{r['n']})</i>" if r["n"] > 1 else "")
+                 for r in rows]
+        send(ADMIN_CHAT_ID, "❓ <b>Bot aniq javob bera olmagan savollar</b> (oxirgi 30 kun)\n\n"
+             + "\n".join(lines) + "\n\nJavoblarni <code>/addinfo</code> bilan bazaga qo'shing.",
+             reply_to=msg["message_id"])
     elif command == "/help":
         send(ADMIN_CHAT_ID, "🛠 <b>Admin buyruqlari</b>\n\n"
                             "/stats — statistika\n/leads — oxirgi 10 ta ariza\n"
                             "/broadcast matn — barcha foydalanuvchilarga xabar\n\n"
+                            "📚 <b>Bilim bazasi</b>\n"
+                            "/addinfo matn — bazaga yangi ma'lumot qo'shish\n"
+                            "/info — qo'shilgan ma'lumotlar ro'yxati\n"
+                            "/delinfo raqam — ma'lumotni o'chirish\n"
+                            "/gaps — bot javob topa olmagan savollar\n\n"
                             "Foydalanuvchiga javob berish: uning xabariga yoki ariza kartasiga reply qiling.")
     elif reply and not command:
         user_id = db.relay_user(reply["message_id"])
@@ -789,6 +850,9 @@ def register_webhook(base: str) -> dict | None:
             {"command": "stats", "description": "Statistika"},
             {"command": "leads", "description": "Oxirgi arizalar"},
             {"command": "broadcast", "description": "Hammaga xabar yuborish"},
+            {"command": "addinfo", "description": "Bazaga ma'lumot qo'shish"},
+            {"command": "info", "description": "Qo'shilgan ma'lumotlar"},
+            {"command": "gaps", "description": "Javobsiz qolgan savollar"},
             {"command": "help", "description": "Admin yordam"},
         ])
     return result

@@ -1,6 +1,10 @@
 UNIVERSITET HAQIDA
 Nomi: Qarshi Xalqaro Universiteti (Karshi International University, KIU). Xususiy universitet, Qarshi shahrida joylashgan.
 Shiori: «Bilim — chegara bilmaydi».
+Tashkil etilgan yili: 2022-yil, Qarshi shahrida.
+Bitiruvchilarga davlat namunasidagi diplom beriladi.
+Ta'lim darajalari: bakalavriat, magistratura, ikkinchi oliy ta'lim, MBA va qisqa muddatli kurslar.
+Ta'lim shakllari: kunduzgi va masofaviy (masofaviy ta'limda dunyoning istalgan joyidan o'qish mumkin).
 Rasmiy sayt: https://kiu.uz
 Onlayn qabul sayti: https://qabul.kiu.uz
 
@@ -18,6 +22,11 @@ Qanday qabul bo'lish (4 qadam):
 3. Imtihon / suhbat — onlayn yoki kampusda belgilangan vaqtda.
 4. Qabul + shartnoma — natijani ko'rib, shartnoma tuziladi.
 Saytda ro'yxatdan o'tish bepul.
+
+TO'LOV
+Kontraktni to'lash usullari: bir martada to'liq to'lash yoki bo'lib-bo'lib to'lash.
+Ta'lim krediti: davlat ko'magi bilan, yillik 14% stavkada.
+To'lov muddatlari va bo'lib to'lash grafigi bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
 
 TA'LIM YO'NALISHLARI VA KONTRAKT NARXLARI (bakalavr, kunduzgi, o'zbek tilida)
 - 60110200 Maktabgacha ta'lim — 3 yil — 12 850 000 so'm
@@ -43,4 +52,5 @@ YO'NALISHLAR QISQACHA
 - Dasturiy injiniring: dasturiy ta'minot yaratish, ma'lumotlar bazalari, IT loyihalar.
 
 BOSHQA XIZMATLAR
-Universitetda masofaviy ta'lim, kutubxona, to'garaklar, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud. Batafsil ma'lumot uchun +998 55 500 99 44 raqamiga qo'ng'iroq qiling.
+Universitetda masofaviy ta'lim, kutubxona, to'garaklar, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud. Talabalar uchun elektron platforma: https://digital.kiu.uz (KIU e-university).
+Batafsil ma'lumot uchun +998 55 500 99 44 raqamiga qo'ng'iroq qiling.

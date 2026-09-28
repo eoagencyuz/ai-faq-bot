@@ -18,6 +18,12 @@ Qarshi Xalqaro Universiteti (KIU) qabul bo'limi uchun Telegram bot. Javoblarni G
 - `/broadcast matn` (yoki biror xabarga reply qilib `/broadcast`): barcha foydalanuvchilarga xabar yuboradi.
 - Ariza kartasiga yoki foydalanuvchining forward qilingan xabariga **reply** qilinsa, javob foydalanuvchiga yetib boradi.
 
+**📚 Bilim bazasini boyitish** (deploysiz, admin guruhdan)
+- `/addinfo matn`: bazaga yangi ma'lumot qo'shadi. Matnli xabarga reply qilib `/addinfo` yozsa ham bo'ladi. Bot darhol shu ma'lumot bilan javob bera boshlaydi.
+- `/info`: qo'shilgan ma'lumotlar ro'yxati. `/delinfo raqam` bilan o'chiriladi.
+- `/gaps`: bot aniq javob bera olmagan savollar, qaysi biri necha marta so'ralgani bilan. Bazaga nima qo'shish kerakligini shu ro'yxat ko'rsatadi.
+- `/addinfo` bilan qo'shilgan ma'lumotlar bazada saqlanadi. Render'ning bepul tarifida ular deployda o'chib ketadi, shuning uchun muhim ma'lumotlarni vaqti-vaqti bilan `faq.txt` ga ham ko'chirib qo'ying.
+
 **Texnik tomoni**
 - Webhook Telegram'ga darhol javob qaytaradi, shuning uchun takroriy javoblar bo'lmaydi.
 - Webhook maxfiy token bilan himoyalangan.
