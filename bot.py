@@ -3,6 +3,7 @@ Telegram AI FAQ bot — Gemini (bepul) + Render (webhook).
 FAQ matnini faq.txt fayliga yozing — bot faqat shundan javob beradi.
 """
 import os
+import time
 import requests
 from flask import Flask, request
 
@@ -12,10 +13,8 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
 ADMIN_CONTACT = os.environ.get("ADMIN_CONTACT", "administrator")
 
 TG_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
-GEMINI_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_MODEL}:generateContent"
-)
+GEMINI_MODELS = [GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.0-flash"]
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 
 with open(os.path.join(os.path.dirname(__file__), "faq.txt"), encoding="utf-8") as f:
     FAQ = f.read()
@@ -47,14 +46,23 @@ def ask_gemini(chat_id: int, text: str) -> str:
         "contents": msgs,
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 800},
     }
-    try:
-        r = requests.post(GEMINI_URL, json=body, headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=40)
-        r.raise_for_status()
-        answer = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception as e:
-        resp = getattr(e, "response", None)
-        print("Gemini xato:", resp.status_code if resp is not None else type(e).__name__,
-              resp.text[:500] if resp is not None else "")
+    answer = None
+    for attempt in range(2):
+        for model in GEMINI_MODELS:
+            try:
+                r = requests.post(GEMINI_URL.format(model), json=body,
+                                  headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=40)
+                if r.status_code != 200:
+                    print("Gemini xato:", model, r.status_code, r.text[:300])
+                    continue
+                answer = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                break
+            except Exception as e:
+                print("Gemini xato:", model, type(e).__name__)
+        if answer:
+            break
+        time.sleep(2)
+    if not answer:
         msgs.pop()
         return "Kechirasiz, hozir javob bera olmayapman. Birozdan so'ng qayta urinib ko'ring."
     msgs.append({"role": "model", "parts": [{"text": answer}]})
