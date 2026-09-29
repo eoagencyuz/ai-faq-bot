@@ -191,6 +191,7 @@ MAX_CHATS = 2000          # xotirada saqlanadigan chatlar soni
 MAX_INPUT_CHARS = 1500    # foydalanuvchi xabarining maksimal uzunligi
 MAX_FILE_BYTES = 10 * 1024 * 1024
 RATE_LIMIT = (6, 30)      # 30 soniyada ko'pi bilan 6 ta AI so'rov
+GEMINI_DEADLINE = 45      # bitta javob uchun Gemini'ni ko'pi bilan shuncha soniya kutamiz
 STATE_TTL = 30 * 60       # ariza/operator/test holati shuncha vaqtdan so'ng tugaydi
 
 # --- Holat (xotirada) ---
@@ -201,7 +202,7 @@ user_hits: dict[int, deque] = {}
 chat_locks: dict[int, threading.Lock] = {}
 state_lock = threading.Lock()
 
-executor = ThreadPoolExecutor(max_workers=int(os.environ.get("WORKERS", 8)))
+executor = ThreadPoolExecutor(max_workers=int(os.environ.get("WORKERS", 32)))
 http = requests.Session()
 app = Flask(__name__)
 
@@ -307,11 +308,16 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
         "generationConfig": {"temperature": 0.6, "maxOutputTokens": 1024},
     }
     answer = None
+    started = time.monotonic()
     for attempt in range(2):
+        if attempt and time.monotonic() - started > 20:
+            break  # foydalanuvchini uzoq kutdirmaymiz
         for model in GEMINI_MODELS:
+            if time.monotonic() - started > GEMINI_DEADLINE:
+                break
             try:
                 r = http.post(GEMINI_URL.format(model), json=body,
-                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=60)
+                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=25)
                 if r.status_code != 200:
                     log.warning("Gemini xato %s %s: %s", model, r.status_code, r.text[:300])
                     continue
@@ -346,7 +352,8 @@ def reply_with_ai(chat_id: int, user_id: int, parts: list[dict], history_text: s
         send(chat_id, RATE_LIMIT_TEXT)
         return
     tg("sendChatAction", chat_id=chat_id, action=action)
-    answer, noinfo = ask_gemini(chat_id, parts, history_text)
+    with chat_lock(chat_id):  # bitta chatda AI javoblari tartib bilan, tugmalar esa kutmaydi
+        answer, noinfo = ask_gemini(chat_id, parts, history_text)
     send(chat_id, answer, formatted=False)
     if noinfo:
         question = history_text or " ".join(p["text"] for p in parts if "text" in p)
@@ -824,8 +831,7 @@ def process_update(update: dict):
         if "callback_query" in update:
             cb = update["callback_query"]
             chat_id = (cb.get("message") or {}).get("chat", {}).get("id") or cb["from"]["id"]
-            with chat_lock(chat_id):
-                handle_callback(cb)
+            handle_callback(cb)
             return
         msg = update.get("message")
         if not msg:
@@ -834,8 +840,7 @@ def process_update(update: dict):
         if ADMIN_CHAT_ID and chat.get("id") == ADMIN_CHAT_ID:
             handle_admin(msg)
         elif chat.get("type") == "private":
-            with chat_lock(chat["id"]):  # bitta chatda xabarlar tartib bilan
-                handle_private(msg)
+            handle_private(msg)
         # boshqa guruhlarda javob bermaymiz
     except Exception:
         log.exception("Update'ni qayta ishlashda xato: %s", str(update)[:500])
