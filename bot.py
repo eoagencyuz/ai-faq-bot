@@ -812,7 +812,15 @@ def process_update(update: dict):
                 handle_private(msg)
         # boshqa guruhlarda javob bermaymiz
     except Exception:
-        log.exception("Update'ni qayta ishlashda xato")
+        log.exception("Update'ni qayta ishlashda xato: %s", str(update)[:500])
+        chat_id = ((update.get("message") or (update.get("callback_query") or {}).get("message") or {})
+                   .get("chat", {}).get("id"))
+        if chat_id and chat_id != ADMIN_CHAT_ID:
+            try:
+                clear_state(chat_id)
+                send(chat_id, ERROR_TEXT, MAIN_KEYBOARD)
+            except Exception:
+                log.exception("Xato haqida xabar yuborib bo'lmadi")
 
 
 @app.get("/")
@@ -824,11 +832,13 @@ def health():
 def webhook():
     if WEBHOOK_SECRET and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
         abort(403)
-    update = request.get_json(silent=True) or {}
-    if is_duplicate(update.get("update_id")):
-        return "ok"
-    # Telegram'ga darhol javob qaytaramiz, aks holda u xabarni qayta yuboradi
-    executor.submit(process_update, update)
+    # Telegram'ga har doim darhol 200 qaytaramiz, aks holda u xabarni qayta-qayta yuboradi
+    try:
+        update = request.get_json(silent=True, force=True) or {}
+        if not is_duplicate(update.get("update_id")):
+            executor.submit(process_update, update)
+    except Exception:
+        log.exception("Webhook xatosi")
     return "ok"
 
 
