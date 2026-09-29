@@ -27,6 +27,28 @@ import quiz
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("kiu-bot")
 
+# Diagnostika: oxirgi xatolar va hodisalar (/status sahifasida ko'rinadi)
+recent_errors: deque = deque(maxlen=8)
+diag = {"updates": 0, "last_update": None, "sent": 0, "last_sent": None, "processed": 0}
+
+
+class _ErrorBuffer(logging.Handler):
+    def emit(self, record):
+        try:
+            text = self.format(record)
+            for secret in (os.environ.get("TELEGRAM_TOKEN"), os.environ.get("GEMINI_API_KEY")):
+                if secret and len(secret) >= 8:
+                    text = text.replace(secret, "***")
+            recent_errors.append(f"{time.strftime('%H:%M:%S', time.gmtime(record.created + 5 * 3600))} "
+                                 f"{text[-1500:]}")
+        except Exception:
+            pass
+
+
+_eb = _ErrorBuffer(level=logging.WARNING)
+_eb.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+logging.getLogger().addHandler(_eb)
+
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
@@ -250,6 +272,9 @@ def send(chat_id: int, text: str, markup: dict | None = None, formatted: bool = 
         if reply_to and i == 0:
             payload["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
         result = tg("sendMessage", **payload)
+        if result is not None:
+            diag["sent"] += 1
+            diag["last_sent"] = time.time()
         if result is None and last_error() == 400:
             # HTML xato bo'lsa — oddiy matn sifatida yuboramiz
             payload.pop("parse_mode")
@@ -794,6 +819,7 @@ def broadcast(source_msg_id: int | None, body: str):
 
 # ======================= Routing =======================
 def process_update(update: dict):
+    diag["processed"] += 1
     try:
         if "callback_query" in update:
             cb = update["callback_query"]
@@ -835,6 +861,8 @@ def webhook():
     # Telegram'ga har doim darhol 200 qaytaramiz, aks holda u xabarni qayta-qayta yuboradi
     try:
         update = request.get_json(silent=True, force=True) or {}
+        diag["updates"] += 1
+        diag["last_update"] = time.time()
         if not is_duplicate(update.get("update_id")):
             executor.submit(process_update, update)
     except Exception:
@@ -875,6 +903,10 @@ def register_webhook(base: str) -> dict | None:
 def set_webhook():
     base = os.environ.get("RENDER_EXTERNAL_URL") or request.host_url.rstrip("/")
     return "Webhook o'rnatildi ✅" if register_webhook(base) else f"Xato: {last_error()} — /status ni oching"
+
+
+def ago(ts: float | None) -> str:
+    return f"{int(time.time() - ts)} s oldin" if ts else "hali yo'q"
 
 
 def gemini_check() -> str:
@@ -918,6 +950,10 @@ def status():
         f"Yo'nalishlar (faq.txt): {len(PROGRAMS)}",
         f"Baza: {db.DB_PATH}",
         f"Gemini: {gemini_check()}",
+        f"Kelgan xabarlar: {diag['updates']} (oxirgisi {ago(diag['last_update'])}), "
+        f"qayta ishlangan: {diag['processed']}, navbatda: {executor._work_queue.qsize()}",
+        f"Yuborilgan javoblar: {diag['sent']} (oxirgisi {ago(diag['last_sent'])})",
+        "Oxirgi xatolar:\n  " + ("\n  ".join(recent_errors) if recent_errors else "yo'q"),
         f"Versiya: {os.environ.get('RENDER_GIT_COMMIT', 'nomalum')[:7]}, Python {sys.version.split()[0]}",
     ]
     return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
