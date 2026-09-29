@@ -12,6 +12,7 @@ import html
 import logging
 import os
 import re
+import sys
 import threading
 import time
 from collections import OrderedDict, deque
@@ -866,6 +867,29 @@ def set_webhook():
     return "Webhook o'rnatildi ✅" if register_webhook(base) else f"Xato: {last_error()} — /status ni oching"
 
 
+def gemini_check() -> str:
+    """Har bir modelga kichik so'rov yuborib, kalit va limitni tekshiradi."""
+    results = []
+    for model in GEMINI_MODELS:
+        try:
+            r = http.post(GEMINI_URL.format(model), headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=30,
+                          json={"contents": [{"role": "user", "parts": [{"text": "ping"}]}],
+                                "generationConfig": {"maxOutputTokens": 5}})
+            if r.status_code == 200:
+                results.append(f"{model} ✅")
+            else:
+                try:
+                    msg = r.json().get("error", {}).get("message", "")[:120]
+                except ValueError:
+                    msg = r.text[:120]
+                hint = {400: "kalit noto'g'ri", 403: "kalitga ruxsat yo'q", 404: "model topilmadi",
+                        429: "bepul limit tugagan"}.get(r.status_code, "")
+                results.append(f"{model} ❌ {r.status_code} {hint} — {msg}")
+        except requests.RequestException as e:
+            results.append(f"{model} ❌ {type(e).__name__}")
+    return "\n  " + "\n  ".join(results)
+
+
 @app.get("/status")
 def status():
     """Diagnostika: bot va webhook holati (token ko'rsatilmaydi)."""
@@ -883,6 +907,8 @@ def status():
         f"Admin guruh: {ADMIN_CHAT_ID or 'sozlanmagan'}",
         f"Yo'nalishlar (faq.txt): {len(PROGRAMS)}",
         f"Baza: {db.DB_PATH}",
+        f"Gemini: {gemini_check()}",
+        f"Versiya: {os.environ.get('RENDER_GIT_COMMIT', 'nomalum')[:7]}, Python {sys.version.split()[0]}",
     ]
     return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
 
