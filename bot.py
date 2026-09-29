@@ -66,7 +66,12 @@ SITE_URL = "https://kiu.uz"
 
 TG_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 TG_FILE = f"https://api.telegram.org/file/bot{TELEGRAM_TOKEN}"
-GEMINI_MODELS = list(dict.fromkeys([GEMINI_MODEL, "gemini-flash-lite-latest", "gemini-2.0-flash"]))
+# Zaxira modellar: asosiysi band bo'lsa (503) yoki javob bermasa, keyingisiga o'tiladi
+GEMINI_MODELS = list(dict.fromkeys(
+    [GEMINI_MODEL, "gemini-flash-lite-latest"]
+    + [m.strip() for m in os.environ.get("GEMINI_FALLBACK", "").split(",") if m.strip()]))
+# Ishlamay qolgan model shu vaqtgacha o'tkazib yuboriladi (model -> monotonic vaqt)
+model_cooldown: dict[str, float] = {}
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 
 with open(os.path.join(os.path.dirname(__file__), "faq.txt"), encoding="utf-8") as f:
@@ -296,6 +301,20 @@ def download_file(file_id: str) -> bytes | None:
 
 
 # ======================= Gemini =======================
+def cool_down(model: str, status: int):
+    """Band (503/429), javob bermagan yoki o'chirilgan (404) modelni vaqtincha chetlab o'tamiz."""
+    seconds = {404: 6 * 3600, 400: 0, 429: 300}.get(status, 120)
+    if seconds:
+        model_cooldown[model] = time.monotonic() + seconds
+
+
+def ordered_models() -> list[str]:
+    """Hozir ishlayotgan modellar oldinda; hammasi band bo'lsa ham baribir urinib ko'ramiz."""
+    now = time.monotonic()
+    ready = [m for m in GEMINI_MODELS if model_cooldown.get(m, 0) <= now]
+    return ready + [m for m in GEMINI_MODELS if m not in ready]
+
+
 def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None) -> tuple[str, bool]:
     """parts — joriy xabar (matn va/yoki fayl). Tarixga faqat history_text (yoki matn qismlari) yoziladi.
     (javob, bazada ma'lumot topilmadimi) qaytaradi."""
@@ -312,14 +331,15 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
     for attempt in range(2):
         if attempt and time.monotonic() - started > 20:
             break  # foydalanuvchini uzoq kutdirmaymiz
-        for model in GEMINI_MODELS:
+        for model in ordered_models():
             if time.monotonic() - started > GEMINI_DEADLINE:
                 break
             try:
                 r = http.post(GEMINI_URL.format(model), json=body,
-                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=25)
+                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=20)
                 if r.status_code != 200:
                     log.warning("Gemini xato %s %s: %s", model, r.status_code, r.text[:300])
+                    cool_down(model, r.status_code)
                     continue
                 cand = r.json()["candidates"][0]["content"]["parts"]
                 answer = "".join(p.get("text", "") for p in cand).strip() or None
@@ -327,6 +347,8 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
                     break
             except (requests.RequestException, KeyError, IndexError, ValueError) as e:
                 log.warning("Gemini xato %s: %s", model, type(e).__name__)
+                if isinstance(e, requests.RequestException):
+                    cool_down(model, 503)
         if answer:
             break
         time.sleep(2)
