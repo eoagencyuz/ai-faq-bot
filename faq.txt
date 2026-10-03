@@ -84,16 +84,61 @@ Jami qabul portalida 18 ta dastur: 13 ta bakalavriat va 5 ta magistratura.
 TA'LIM SHAKLLARI
 Universitetda kunduzgi va sirtqi shaklda talabalar o'qiydi (rasmiy statistikaga ko'ra talabalarning 66,8% sirtqi). 2026–2027 qabul portalida bakalavriat yo'nalishlari kunduzgi shaklda ko'rsatilgan. Sirtqi yoki boshqa shakllarda qabul va ularning narxlari bo'yicha +998 55 500 99 44 raqamiga qo'ng'iroq qilib aniqlashtirish kerak.
 
-YO'NALISHLAR QISQACHA
-- Maktabgacha ta'lim: xususiy bog'cha ochish imkoniyati, sohada talab yuqori.
-- Boshlang'ich ta'lim: barqaror ish o'rni, o'z metodikasini yaratish imkoniyati. Universitetning ustuvor yo'nalishi.
-- Milliy g'oya va huquq ta'limi: davlat va jamoat tashkilotlarida ishlash imkoniyati.
-- Filologiya (ingliz, nemis, rus, o'zbek): o'qituvchi, tarjimon, xalqaro kompaniyalarda ishlash.
-- Psixologiya: maktab, klinika, HR va konsalting sohalarida ishlash.
-- Neft va gaz ishi: yuqori maoshli soha, xalqaro loyihalarda ishtirok.
-- Iqtisodiyot: bank, davlat, biznes, xalqaro savdoda ishlash; mikro/makroiqtisodiyot, soliq, investitsiya o'rganiladi.
-- Buxgalteriya hisobi, Moliya va moliyaviy texnologiyalar: bank, audit, soliq, fintech kompaniyalar.
-- Dasturiy injiniring: dasturiy ta'minot yaratish, ma'lumotlar bazalari, IT loyihalar.
+YO'NALISHLAR BATAFSIL
+(Quyidagi tavsiflar — sohalar haqida umumiy ma'lumot: nima o'rganiladi, qanday ko'nikmalar beriladi, qayerda ishlash mumkin. KIU'ga xos aniq o'quv reja yoki fanlar ro'yxati so'ralsa, qabul bo'limidan aniqlashtirishni tavsiya qil.)
+
+Maktabgacha ta'lim (3 yil)
+- Nima o'rganiladi: bola psixologiyasi va rivojlanishi, maktabgacha pedagogika, o'yin orqali o'qitish metodikasi, nutq o'stirish, tasviriy san'at va musiqa mashg'ulotlari, inklyuziv ta'lim.
+- Kimga mos: bolalarni yaxshi ko'radigan, sabrli, ijodkor odamlarga.
+- Ish joylari: davlat va xususiy bog'chalar, bolalar rivojlantirish markazlari, enaga-tarbiyachi, o'z xususiy bog'chasini yoki rivojlantirish markazini ochish.
+- Afzalligi: o'qish 3 yil (boshqa yo'nalishlardan 1 yil qisqa), bog'cha tarmog'i kengayib borayotgani sababli mutaxassislarga talab yuqori.
+
+Boshlang'ich ta'lim (4 yil) — KIU'ning ustuvor yo'nalishi
+- Nima o'rganiladi: 1–4-sinf o'quvchilariga ona tili, o'qish, matematika, tabiatshunoslik o'qitish metodikasi, pedagogika, bolalar psixologiyasi, zamonaviy interaktiv usullar.
+- Ish joylari: davlat va xususiy maktablar, xususiy o'quv markazlari, repetitorlik, metodist.
+- Afzalligi: maktablarda doimiy talab, barqaror ish o'rni.
+
+Milliy g'oya, ma'naviyat asoslari va huquq ta'limi (4 yil)
+- Nima o'rganiladi: huquq asoslari, konstitutsiyaviy huquq, falsafa, tarix, ma'naviyat, pedagogika va bu fanlarni o'qitish metodikasi.
+- Ish joylari: maktab va kollejlarda huquq va tarbiya fanlari o'qituvchisi, davlat va jamoat tashkilotlari, yoshlar bilan ishlash, ma'naviyat-ma'rifat bo'limlari.
+
+Filologiya va tillarni o'qitish (ingliz, nemis, rus, o'zbek tili) (4 yil)
+- Nima o'rganiladi: tanlangan tilni chuqur o'rganish (grammatika, fonetika, nutq amaliyoti), adabiyot, lingvistika, tarjima asoslari, til o'qitish metodikasi.
+- Ish joylari: maktab va o'quv markazlarida til o'qituvchisi, tarjimon, turizm, xalqaro kompaniyalar, kontent va SMM, xorijda o'qish/ishlash imkoniyatlari.
+- Ingliz tili — eng keng tarqalgan va xalqaro dasturlar (masalan, akademik mobillik uchun B2 talabi) uchun foydali; nemis tili — Germaniyada o'qish va ishlash dasturlari uchun; rus tili — MDH bozori va biznes uchun; o'zbek tili — o'qituvchilik, jurnalistika, muharrirlik uchun.
+- Bitirgandan keyin Lingvistika magistraturasida davom ettirish mumkin.
+
+Psixologiya (4 yil)
+- Nima o'rganiladi: umumiy, yosh va ijtimoiy psixologiya, shaxs psixologiyasi, psixodiagnostika, maslahat berish asoslari, tadqiqot usullari.
+- Ish joylari: maktab psixologi, HR va kadrlar bo'limi, reabilitatsiya markazlari, ijtimoiy xizmatlar, xususiy psixologik maslahat.
+
+Iqtisodiyot (4 yil)
+- Nima o'rganiladi: mikro va makroiqtisodiyot, statistika, soliqlar, investitsiya, xalqaro iqtisodiyot, biznes rejalashtirish.
+- Ish joylari: banklar, soliq va davlat moliya organlari, kompaniyalarda iqtisodchi va tahlilchi, o'z biznesini yuritish.
+- Bitirgandan keyin Iqtisodiyot magistraturasida davom ettirish mumkin.
+
+Buxgalteriya hisobi (4 yil)
+- Nima o'rganiladi: moliyaviy va boshqaruv hisobi, soliq hisobi, audit asoslari, 1C kabi hisob dasturlari, moliyaviy hisobot.
+- Ish joylari: har qanday korxonada buxgalter, bosh buxgalter, auditorlik firmalari, soliq maslahatchisi. Buxgalter har bir tashkilotga kerak — bu barqaror kasb.
+
+Moliya va moliyaviy texnologiyalar (4 yil)
+- Nima o'rganiladi: moliya bozorlari, bank ishi, sug'urta, investitsiya tahlili, raqamli to'lovlar va fintech, moliyaviy modellashtirish.
+- Ish joylari: banklar, fintech kompaniyalar, to'lov tizimlari, investitsiya va sug'urta kompaniyalari, moliyaviy tahlilchi.
+
+Dasturiy injiniring (4 yil)
+- Nima o'rganiladi: dasturlash (masalan Python, Java, C++), algoritmlar va ma'lumotlar tuzilmalari, ma'lumotlar bazalari, veb va mobil ilovalar yaratish, dasturiy ta'minot loyihalash va test qilish.
+- Ish joylari: IT kompaniyalar, banklar va davlat tashkilotlarining IT bo'limlari, frilans, xalqaro masofaviy ish, o'z startapi.
+- Kimga mos: mantiqiy fikrlashni, yangi narsa yaratishni yoqtiradigan, kompyuterda ko'p ishlashga tayyor odamlarga. Matematikani yaxshi bilish katta afzallik.
+
+Neft va gaz ishi (4 yil)
+- Nima o'rganiladi: neft va gaz konlarini qidirish va qazib olish, burg'ulash, quvur transporti, neft-gazni qayta ishlash asoslari, sanoat xavfsizligi.
+- Ish joylari: neft-gaz kompaniyalari, gaz-kimyo majmualari, quvur va energetika korxonalari. Qashqadaryo — O'zbekistonning yirik neft-gaz mintaqasi, shuning uchun bu soha mutaxassislari uchun ish imkoniyati yaqin.
+
+TEZ-TEZ BERILADIGAN SAVOLLAR UCHUN TAYANCH MA'LUMOT
+- 4 yillik o'qishning jami kontrakti (joriy 2026–2027 narxlarda; narx har yili o'zgarishi mumkin): 12 850 000 so'mlik yo'nalishlarda — 51 400 000 so'm; 14 900 000 so'mlik yo'nalishlarda — 59 600 000 so'm. Maktabgacha ta'lim (3 yil) — 38 550 000 so'm. Magistratura (2 yil) — 36 000 000 so'm.
+- Eng arzon kontrakt: 12 850 000 so'm (pedagogika, filologiya, psixologiya, dasturiy injiniring, neft va gaz ishi). Eng qisqa o'qish: Maktabgacha ta'lim — 3 yil.
+- Ota-onalar uchun muhim: universitet davlat litsenziyasi va akkreditatsiyaga ega, bitiruvchilarga davlat namunasidagi diplom beriladi, rasmiy statistikaga ko'ra bitiruvchilarning 84,3% ishga joylashgan.
+- Kontraktni bo'lib to'lash va 14% lik ta'lim krediti mavjud, shuning uchun to'lovni bir martada qilish shart emas.
 
 TO'LOV
 Kontraktni to'lash usullari: bir martada to'liq to'lash yoki bo'lib-bo'lib to'lash.
