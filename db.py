@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS gaps (
 );
 CREATE INDEX IF NOT EXISTS events_time ON events(created_at);
 """)
+# Ro'yxatdan o'tish ustunlari (eski bazalarga ham qo'shiladi)
+for _col in ("full_name TEXT", "phone TEXT", "registered_at INTEGER"):
+    try:
+        _conn.execute(f"ALTER TABLE users ADD COLUMN {_col}")
+    except sqlite3.OperationalError:
+        pass
+_conn.commit()
 
 
 def _exec(sql: str, args=()):
@@ -69,6 +76,24 @@ def upsert_user(user: dict) -> bool:
           (uid, user.get("first_name"), user.get("last_name"), user.get("username"),
            user.get("language_code"), now, now))
     return is_new
+
+
+def get_registration(user_id: int) -> tuple[str, str] | None:
+    rows = _query("SELECT full_name, phone FROM users WHERE id=? AND phone IS NOT NULL", (user_id,))
+    return (rows[0]["full_name"], rows[0]["phone"]) if rows else None
+
+
+def set_registration(user_id: int, full_name: str, phone: str):
+    _exec("UPDATE users SET full_name=?, phone=?, registered_at=? WHERE id=?",
+          (full_name, phone, int(time.time()), user_id))
+
+
+def registered_users():
+    return _query("SELECT * FROM users WHERE phone IS NOT NULL ORDER BY registered_at")
+
+
+def all_leads():
+    return _query("SELECT * FROM leads ORDER BY id")
 
 
 def set_blocked(user_id: int):
@@ -111,6 +136,8 @@ def stats() -> dict:
 
     return {
         "users": one("SELECT COUNT(*) FROM users"),
+        "registered": one("SELECT COUNT(*) FROM users WHERE phone IS NOT NULL"),
+        "reg_day": one("SELECT COUNT(*) FROM users WHERE registered_at>=?", (day,)),
         "blocked": one("SELECT COUNT(*) FROM users WHERE blocked=1"),
         "new_day": one("SELECT COUNT(*) FROM users WHERE created_at>=?", (day,)),
         "new_week": one("SELECT COUNT(*) FROM users WHERE created_at>=?", (week,)),

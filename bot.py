@@ -471,6 +471,8 @@ def normalize_phone(text: str) -> str | None:
     digits = re.sub(r"\D", "", text)
     if len(digits) == 9:
         return "+998" + digits
+    if len(digits) == 12 and digits.startswith("998"):
+        return "+" + digits
     if 10 <= len(digits) <= 15:
         return "+" + digits
     return None
@@ -485,8 +487,73 @@ def last_user_question(chat_id: int) -> str:
     return ""
 
 
+# ======================= Ro'yxatdan o'tish =======================
+_NAME_WORD = r"[A-Za-zА-Яа-яЁёЎўҚқҒғҲҳ'ʻʼ‘’`-]{2,}"
+NAME_RE = re.compile(rf"^{_NAME_WORD}(\s+{_NAME_WORD}){{1,3}}$")
+REMOVE_KEYBOARD = {"remove_keyboard": True}
+REG_PHONE_KEYBOARD = {"keyboard": [[{"text": BTN_SHARE_PHONE, "request_contact": True}]],
+                      "resize_keyboard": True, "one_time_keyboard": True}
+
+
+def start_registration(chat_id: int, first_time: bool = True):
+    set_state(chat_id, "reg_name")
+    intro = ("Assalomu alaykum! 👋 <b>Qarshi xalqaro universiteti</b> qabul bo'limi botiga xush kelibsiz.\n\n"
+             if first_time else "Botdan foydalanish uchun avval qisqa ro'yxatdan o'ting 🙂\n\n")
+    send(chat_id, intro + "<b>1/2.</b> Ism va familiyangizni yozing (masalan: <i>Aliyev Vali</i>):",
+         REMOVE_KEYBOARD)
+
+
+def handle_registration(chat_id: int, msg: dict, st: dict):
+    user = msg.get("from") or {}
+    text = (msg.get("text") or "").strip()
+    if st["mode"] == "reg_name":
+        name = re.sub(r"\s+", " ", text)
+        if not NAME_RE.match(name) or len(name) > 60:
+            send(chat_id, "Iltimos, <b>ism va familiyangizni</b> to'liq yozing, masalan: <i>Aliyev Vali</i> ✍️")
+            return
+        name = " ".join(w[:1].upper() + w[1:] for w in name.split())
+        set_state(chat_id, "reg_phone", name=name)
+        send(chat_id, f"Rahmat, {html.escape(name)}! 😊\n\n<b>2/2.</b> Telefon raqamingizni yuboring — "
+                      f"pastdagi <b>{BTN_SHARE_PHONE}</b> tugmasini bosing yoki raqamni yozing "
+                      "(masalan: <i>90 123 45 67</i>):", REG_PHONE_KEYBOARD)
+        return
+    contact = msg.get("contact")
+    if contact and contact.get("user_id") and contact["user_id"] != user.get("id"):
+        send(chat_id, "Iltimos, <b>o'zingizning</b> raqamingizni yuboring 🙂", REG_PHONE_KEYBOARD)
+        return
+    phone = normalize_phone(contact["phone_number"] if contact else text)
+    if not phone:
+        send(chat_id, "Raqam noto'g'ri ko'rinadi 🤔 Masalan: <b>90 123 45 67</b> yoki tugmani bosing.",
+             REG_PHONE_KEYBOARD)
+        return
+    name = st["name"]
+    clear_state(chat_id)
+    db.set_registration(chat_id, name, phone)
+    db.log_event(chat_id, "register")
+    send(chat_id, WELCOME_TEXT.format(name=f", {html.escape(name)}"), MAIN_KEYBOARD)
+    if ADMIN_CHAT_ID:
+        sent = send(ADMIN_CHAT_ID, f"👤 <b>Yangi foydalanuvchi ro'yxatdan o'tdi</b>\n\n"
+                                   f"Ism: <b>{html.escape(name)}</b>\n"
+                                   f"📱 Telefon: <b>{html.escape(phone)}</b>\n"
+                                   f"💬 Telegram: {user_label(user)}\n\n"
+                                   "<i>Yozish uchun shu xabarga reply qiling.</i>")
+        if sent:
+            db.save_relay(sent["message_id"], chat_id)
+
+
 # ======================= Ariza (lead) =======================
-def start_lead(chat_id: int, program: str | None = None):
+def start_lead(chat_id: int, program: str | None = None, user: dict | None = None):
+    reg = db.get_registration(chat_id)
+    if reg:
+        name, phone = reg
+        if program:
+            finish_lead(chat_id, user or {"id": chat_id}, name, phone, program)
+            return
+        set_state(chat_id, "lead_program", name=name, phone=phone)
+        send(chat_id, f"📝 <b>Ariza qoldirish</b>\n\n👤 {html.escape(name)}\n📱 {html.escape(phone)}\n\n"
+                      "Qabul bo'limi xodimlari shu raqamga qo'ng'iroq qilishadi.", CANCEL_KEYBOARD)
+        send(chat_id, "🎓 Qaysi yo'nalish sizni qiziqtiradi?", program_keyboard())
+        return
     set_state(chat_id, "lead_name", program=program)
     note = f"\nTanlangan yo'nalish: <b>{html.escape(program)}</b>\n" if program else ""
     send(chat_id, "📝 <b>Ariza qoldirish</b>\n"
@@ -535,7 +602,7 @@ def finish_lead(chat_id: int, user: dict, name: str, phone: str, program: str):
     clear_state(chat_id)
     lead_id = db.add_lead(chat_id, name, phone, program)
     db.log_event(chat_id, "lead")
-    send(chat_id, f"🎉 <b>Rahmat, {html.escape(name.split()[0])}!</b>\n\n"
+    send(chat_id, f"🎉 <b>Rahmat, {html.escape(name)}!</b>\n\n"
                   "Arizangiz qabul qilindi. Qabul bo'limi xodimlari tez orada "
                   f"<b>{html.escape(phone)}</b> raqamiga qo'ng'iroq qilishadi.\n\n"
                   "Kutib o'tirmasdan, hoziroq onlayn ariza ham topshirishingiz mumkin 👇", LINK_BUTTONS)
@@ -673,6 +740,17 @@ def handle_private(msg: dict):
     if db.upsert_user(user) and NOTIFY_NEW_USERS and ADMIN_CHAT_ID:
         send(ADMIN_CHAT_ID, f"👋 Yangi foydalanuvchi: {user_label(user)}")
 
+    # Ro'yxatdan o'tmaganlar avval ism-familiya va raqam kiritadi
+    if not db.get_registration(chat_id):
+        st = get_state(chat_id)
+        if command == "/start" or not st or not st["mode"].startswith("reg_"):
+            with state_lock:
+                history.pop(chat_id, None)
+            start_registration(chat_id, first_time=(command == "/start"))
+        else:
+            handle_registration(chat_id, msg, st)
+        return
+
     # Har qanday holatdan chiqish
     if command in ("/start", "/cancel") or text in (BTN_CANCEL, BTN_OPERATOR_END):
         st = get_state(chat_id)
@@ -705,7 +783,7 @@ def handle_private(msg: dict):
     elif command == "/apply":
         send(chat_id, APPLY_TEXT, LINK_BUTTONS)
     elif command in ("/lead", "/ariza") or text == BTN_LEAD:
-        start_lead(chat_id)
+        start_lead(chat_id, user=user)
     elif command == "/operator" or text == BTN_OPERATOR:
         start_operator(chat_id, user)
     elif command in ("/quiz", "/test") or text == BTN_QUIZ:
@@ -746,7 +824,7 @@ def handle_callback(cb: dict):
                 handle_quiz_answer(chat_id, msg["message_id"], int(q), int(a))
     elif kind == "lead":
         program = PROGRAMS.get(arg)
-        start_lead(chat_id, program["name"] if program else None)
+        start_lead(chat_id, program["name"] if program else None, user=user)
     elif kind == "prog":
         st = get_state(chat_id)
         if not st or st["mode"] != "lead_program":
@@ -776,6 +854,7 @@ def handle_admin(msg: dict):
         send(ADMIN_CHAT_ID,
              "📊 <b>Statistika</b>\n\n"
              f"👥 Foydalanuvchilar: <b>{s['users']}</b> (botni bloklagan: {s['blocked']})\n"
+             f"🪪 Ro'yxatdan o'tgan: <b>{s['registered']}</b> (24 soatda {s['reg_day']})\n"
              f"🆕 Yangi: 24 soatda <b>{s['new_day']}</b>, 7 kunda <b>{s['new_week']}</b>\n"
              f"🔥 24 soatda faol: <b>{s['active_day']}</b>, so'rovlar: <b>{s['msgs_day']}</b>\n"
              f"📝 Arizalar: jami <b>{s['leads']}</b>, 24 soatda <b>{s['leads_day']}</b>, "
@@ -798,6 +877,8 @@ def handle_admin(msg: dict):
             return
         executor.submit(broadcast, reply["message_id"] if reply else None, body)
         send(ADMIN_CHAT_ID, "📣 Yuborish boshlandi...", reply_to=msg["message_id"])
+    elif command == "/export":
+        export_csv(ADMIN_CHAT_ID)
     elif command == "/addinfo":
         body = text[len(text.split()[0]):].strip()
         if not body and reply:
@@ -837,6 +918,7 @@ def handle_admin(msg: dict):
     elif command == "/help":
         send(ADMIN_CHAT_ID, "🛠 <b>Admin buyruqlari</b>\n\n"
                             "/stats — statistika\n/leads — oxirgi 10 ta ariza\n"
+                            "/export — arizalar va ro'yxatdan o'tganlar (Excel/CSV)\n"
                             "/broadcast matn — barcha foydalanuvchilarga xabar\n\n"
                             "📚 <b>Bilim bazasi</b>\n"
                             "/addinfo matn — bazaga yangi ma'lumot qo'shish\n"
@@ -878,6 +960,46 @@ def broadcast(source_msg_id: int | None, body: str):
     send(ADMIN_CHAT_ID, f"📣 Yuborish tugadi: ✅ {ok}, ❌ {failed}")
 
 
+def group_setup_hint(msg: dict):
+    """Bot guruhga qo'shilganda yoki /id yozilganda guruh ID'sini ko'rsatadi (admin guruhni ulash uchun)."""
+    chat = msg.get("chat", {})
+    if chat.get("type") not in ("group", "supergroup"):
+        return
+    bot_id = int(TELEGRAM_TOKEN.split(":")[0])
+    added = any(m.get("id") == bot_id for m in msg.get("new_chat_members") or [])
+    text = (msg.get("text") or "").strip().split("@")[0].lower()
+    if not added and text not in ("/id", "/chatid"):
+        return
+    send(chat["id"], "👋 Bu guruhni <b>admin guruh</b> qilish uchun (arizalar, ro'yxatdan o'tganlar va operator "
+                     "chat shu yerga keladi):\n\n"
+                     f"1. Guruh ID'si: <code>{chat['id']}</code> (bosib nusxalang)\n"
+                     "2. Render → servis → <b>Environment</b> → <b>ADMIN_CHAT_ID</b> = shu raqam → <b>Save</b>\n"
+                     "3. Render qayta ishga tushgach, bu yerda <code>/help</code> yozib tekshiring.")
+
+
+def export_csv(chat_id: int):
+    """Arizalar va ro'yxatdan o'tganlarni CSV (Excel) fayl qilib yuboradi."""
+    import csv
+    import io
+    for title, rows, cols in (
+            ("arizalar", db.all_leads(), ["id", "name", "phone", "program", "user_id", "created_at"]),
+            ("royxatdan_otganlar", db.registered_users(),
+             ["id", "full_name", "phone", "username", "first_name", "registered_at"])):
+        buf = io.StringIO()
+        w = csv.writer(buf, delimiter=";")
+        w.writerow(cols)
+        for r in rows:
+            w.writerow([time.strftime("%d.%m.%Y %H:%M", time.gmtime(r[c] + 5 * 3600))
+                        if c.endswith("_at") and r[c] else r[c] for c in cols])
+        data = ("\ufeff" + buf.getvalue()).encode("utf-8")  # BOM — Excel kirillni to'g'ri ochishi uchun
+        try:
+            http.post(f"{TG_API}/sendDocument", timeout=60,
+                      data={"chat_id": chat_id, "caption": f"{title}: {len(rows)} ta"},
+                      files={"document": (f"{title}_{time.strftime('%Y%m%d')}.csv", data, "text/csv")})
+        except requests.RequestException as e:
+            log.warning("Eksport xatosi: %s", type(e).__name__)
+
+
 # ======================= Routing =======================
 def note_update(update: dict, route: str):
     kinds = ",".join(k for k in update if k != "update_id") or "bo'sh"
@@ -907,8 +1029,9 @@ def process_update(update: dict):
             note_update(update, "shaxsiy chat")
             handle_private(msg)
         else:
-            # boshqa guruhlarda javob bermaymiz
+            # boshqa guruhlarda javob bermaymiz — faqat admin guruhni sozlashga yordam beramiz
             note_update(update, "e'tiborsiz: guruh (ADMIN_CHAT_ID emas)")
+            group_setup_hint(msg)
     except Exception:
         log.exception("Update'ni qayta ishlashda xato: %s", str(update)[:500])
         chat_id = ((update.get("message") or (update.get("callback_query") or {}).get("message") or {})
@@ -962,6 +1085,7 @@ def register_webhook(base: str) -> dict | None:
         tg("setMyCommands", scope={"type": "chat", "chat_id": ADMIN_CHAT_ID}, commands=[
             {"command": "stats", "description": "Statistika"},
             {"command": "leads", "description": "Oxirgi arizalar"},
+            {"command": "export", "description": "Arizalar va ro'yxat (Excel)"},
             {"command": "broadcast", "description": "Hammaga xabar yuborish"},
             {"command": "addinfo", "description": "Bazaga ma'lumot qo'shish"},
             {"command": "info", "description": "Qo'shilgan ma'lumotlar"},

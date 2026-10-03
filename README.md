@@ -12,9 +12,14 @@ Qarshi Xalqaro Universiteti (KIU) qabul bo'limi uchun Telegram bot. Javoblarni G
 - 👨‍💼 Operator bilan jonli chat: foydalanuvchi xabarlari admin guruhga boradi, operator javobi foydalanuvchiga qaytadi.
 - Menyu tugmalari va buyruqlar: `/start`, `/quiz`, `/lead`, `/operator`, `/apply`, `/contact`, `/help`.
 
+**Ro'yxatdan o'tish:** `/start` bosilganda foydalanuvchi ism-familiya va telefon raqamini kiritadi (kontakt tugmasi orqali, faqat o'z raqami). Shundan keyingina bot ishlaydi. Ma'lumotlar admin guruhga yuboriladi, ariza qoldirishda esa qayta so'ralmaydi.
+
+**Admin guruhni ulash:** botni Telegram guruhga qo'shing. Bot guruh ID'sini o'zi yozib beradi (yoki guruhda `/id` yozing). Shu ID'ni Render'dagi `ADMIN_CHAT_ID` ga yozing.
+
 **Adminlar uchun** (admin guruhda)
 - `/stats`: foydalanuvchilar, faollik va arizalar statistikasi.
 - `/leads`: oxirgi 10 ta ariza.
+- `/export`: arizalar va ro'yxatdan o'tganlar ro'yxati, Excel'da ochiladigan CSV fayl.
 - `/broadcast matn` (yoki biror xabarga reply qilib `/broadcast`): barcha foydalanuvchilarga xabar yuboradi.
 - Ariza kartasiga yoki foydalanuvchining forward qilingan xabariga **reply** qilinsa, javob foydalanuvchiga yetib boradi.
 
