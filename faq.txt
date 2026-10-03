@@ -31,7 +31,16 @@ LITSENZIYA VA RASMIY HUJJATLAR
 Universitet Oliy ta'lim, fan va innovatsiyalar vazirligi litsenziyasi asosida faoliyat yuritadi. Litsenziya Milliy akkreditatsiya va reyting agentligi sahifasida litsenziyalar reyestri orqali ham ko'rsatilgan.
 kiu.uz saytidagi "Rasmiy hujjatlar" bo'limida: Qarshi Xalqaro Universiteti MCHJ guvohnomasi, Oliy ta'lim, fan va innovatsiyalar vazirligi litsenziyasi, Davlat inspeksiyasi litsenziyasi, 2026-yilgi jamoa shartnomasi, odob-axloq kodeksi, ichki mehnat tartibi qoidalari va boshqa hujjatlar joylashtirilgan.
 
+DIPLOM VA ISHONCHLILIK (nodavlat universitet haqida savollar uchun)
+- Diplom to'liq tan olinadi. O'zbekiston Konstitutsiyasining 50-moddasi: davlat uzluksiz ta'lim tizimini, uning turli shakllarini hamda davlat va nodavlat ta'lim tashkilotlarining rivojlanishini ta'minlaydi.
+- "Ta'lim to'g'risida"gi qonunning 31-moddasi: davlat ta'lim standartlari asosida ishlovchi nodavlat ta'lim tashkilotlari bitiruvchilarga davlat tomonidan tasdiqlangan namunadagi diplom beradi — ya'ni diplom davlat OTM diplomi bilan bir xil maqomda, butun O'zbekistonda rasmiy tan olinadi.
+- Prezidentning PQ-279-sonli qaroriga ko'ra nodavlat OTMlarga ham davlat granti ajratilmoqda — bu yil 1200 ta grant o'rni.
+- Litsenziyani istalgan odam licence.gov.uz saytida universitet nomini yozib tekshirishi mumkin.
+- Prezidentning PQ-200-sonli qaroriga ko'ra, biror ta'lim tashkilotining litsenziyasi bekor bo'lsa ham, talabaning boshqa davlat yoki nodavlat OTMga ko'chib o'qishni davom ettirish huquqi qonun bilan kafolatlangan.
+- Xohlovchilar universitetga kelib, barcha hujjatlarni o'z ko'zi bilan ko'rishi mumkin.
+
 MANZIL VA ALOQA
+Universitet Qarshi shahrining qoq markazida joylashgan — "Uzgaz oil", "Sifat supermarket" va "Geolog" tomonda. Transport qulay, shaharning istalgan tomonidan bemalol yetib kelish mumkin. Markazda joylashgani uchun talaba har kuni yo'lga vaqt va pul sarflamaydi.
 1-kampus: Qashqadaryo viloyati, Qarshi shahri, Bahodir Sherqulov ko'chasi, 7-uy.
 2-kampus: Qashqadaryo viloyati, Qarshi shahri, Mustaqillik ko'chasi, 71-uy.
 Barcha savollar uchun telefon: +998 55 500 99 44
@@ -44,19 +53,21 @@ Bu raqamlarni aytganda manbasi va sanasini ham ayt.
 - Professor-o'qituvchilar: 100 nafar, o'rtacha yoshi — 37,1, ilmiy salohiyat — 17%
 - Bitiruvchilar soni: 508
 - Bitiruvchilar bandlik darajasi: 84,3%
+(Universitetning o'z ma'lumotiga ko'ra bitiruvchilarning 90% dan ortig'i ishga joylashadi va bu viloyatdagi xususiy universitetlar ichida eng yuqori natija; ko'plab talabalar o'qish davridayoq ishlab, daromad topadi. Rasmiy agentlik raqami — 84,3%. Raqam so'ralsa, manbasini aniq ayt.)
 - O'rtacha ishga joylashish tezligi: 1 oy 4 kun
 - Bitiruvchilarning o'rtacha ish haqi: taxminan 4 mln so'm
 - Bitiruvchi sifat indeksi: 59,8
 
 QABUL 2026–2027
-Qabul 2026–2027 o'quv yili uchun qabul.kiu.uz portalida olib boriladi.
-Qanday qabul bo'lish (4 qadam):
-1. Ro'yxatdan o'tish — qabul.kiu.uz saytida telefon raqam bilan 1 daqiqada.
+Qabul jarayoni boshlangan — hujjatni bugunoq topshirish mumkin. Ikki usul: universitetga kelib topshirish yoki qabul.kiu.uz saytida onlayn (taxminan 5 daqiqalik ish).
+Kerakli hujjatlar: pasport nusxasi va attestat yoki diplom.
+DTM bali past bo'lsa ham qabul qilinadi: to'lov-shartnoma asosida barcha ball darajasidagi abituriyentlar qabul qilinadi.
+Onlayn qabul 4 qadam:
+1. Ro'yxatdan o'tish — qabul.kiu.uz saytida telefon raqam bilan 1 daqiqada (bepul).
 2. Ma'lumot kiritish — pasport, ta'lim ma'lumoti va yo'nalish onlayn to'ldiriladi.
 3. Imtihon / suhbat — onlayn yoki kampusda belgilangan vaqtda.
 4. Qabul + shartnoma — natijani ko'rib, shartnoma tuziladi.
-Saytda ro'yxatdan o'tish bepul.
-Imtihon fanlari, qabul muddatlari va kerakli hujjatlar ro'yxati bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
+Imtihon fanlari va aniq muddatlar bo'yicha +998 55 500 99 44 raqamidan aniqlashtirish mumkin.
 
 BAKALAVRIAT YO'NALISHLARI VA KONTRAKT NARXLARI (2026–2027, kunduzgi, o'zbek tilida, yillik)
 - 60110200 Maktabgacha ta'lim — 3 yil — 12 850 000 so'm
@@ -81,8 +92,14 @@ MAGISTRATURA (2026–2027, yillik)
 - Iqtisodiyot — 2 yil — 18 000 000 so'm
 Jami qabul portalida 18 ta dastur: 13 ta bakalavriat va 5 ta magistratura.
 
-TA'LIM SHAKLLARI
-Universitetda kunduzgi va sirtqi shaklda talabalar o'qiydi (rasmiy statistikaga ko'ra talabalarning 66,8% sirtqi). 2026–2027 qabul portalida bakalavriat yo'nalishlari kunduzgi shaklda ko'rsatilgan. Sirtqi yoki boshqa shakllarda qabul va ularning narxlari bo'yicha +998 55 500 99 44 raqamiga qo'ng'iroq qilib aniqlashtirish kerak.
+TA'LIM SHAKLLARI VA O'QISH JARAYONI
+- Hozirda kunduzgi va kechki ta'lim shakllari mavjud.
+- Kechki ta'lim — ishlaydiganlar uchun, darslar soat 17:00 dan keyin boshlanadi. Batafsil ma'lumotni qabul bo'limi beradi.
+- Sirtqi ta'lim: Prezidentning 2025-yil 5-maydagi PF-76-sonli Farmoni bilan O'zbekistondagi barcha davlat va nodavlat OTMlarda sirtqi ta'limga qabul to'liq bekor qilingan (faqat KIU'da emas, butun mamlakatda). Universitetdagi hozirgi sirtqi talabalar (rasmiy statistikada 66,8%) — avvalgi yillarda qabul qilinganlar.
+- O'qish haftada 4 kun — ish bilan birga olib borish qulay.
+- Har bir yo'nalishda yevro guruh ham mavjud (tafsilotlari bo'yicha qabul bo'limidan aniqlashtirish mumkin).
+- Akademik mobillik: 1 yoki 2 semestr davomida Toshkentdagi hamkor oliygohlarda o'qish imkoniyati bor.
+- Darslarni zamonaviy, yosh va tajribali, aksariyati xorijda tahsil olgan professor-o'qituvchilar o'tadi; xorijlik professor-o'qituvchilar ham bevosita dars beradi.
 
 YO'NALISHLAR BATAFSIL
 (Quyidagi tavsiflar — sohalar haqida umumiy ma'lumot: nima o'rganiladi, qanday ko'nikmalar beriladi, qayerda ishlash mumkin. KIU'ga xos aniq o'quv reja yoki fanlar ro'yxati so'ralsa, qabul bo'limidan aniqlashtirishni tavsiya qil.)
@@ -134,25 +151,51 @@ Neft va gaz ishi (4 yil)
 - Nima o'rganiladi: neft va gaz konlarini qidirish va qazib olish, burg'ulash, quvur transporti, neft-gazni qayta ishlash asoslari, sanoat xavfsizligi.
 - Ish joylari: neft-gaz kompaniyalari, gaz-kimyo majmualari, quvur va energetika korxonalari. Qashqadaryo — O'zbekistonning yirik neft-gaz mintaqasi, shuning uchun bu soha mutaxassislari uchun ish imkoniyati yaqin.
 
+BITIRUVCHILAR EGALLAYDIGAN MUTAXASSISLIKLAR (KIU qabul bo'limi ma'lumoti)
+- Dasturiy injiniring: kasbiy avtomatlashtirilgan va kompyuter tizimlari dasturchisi; avtomatlashtirilgan loyihalash tizimlari mutaxassisi; axborot-kommunikatsiya tizimlari loyihachisi; mikroprotsessorli tizimlar dasturiy ta'minoti mutaxassisi; elektron hukumat tizimlarida dasturiy ta'minot ishlab chiquvchi; ma'lumotlar bazalari mutaxassisi; ilmiy-tadqiqot tashkilotlarida kichik ilmiy xodim. Uydan, freelance va xalqaro kompaniyalarda masofaviy ishlash imkoniyati.
+- Iqtisodiyot: davlat moliya boshqaruvchisi; korporativ moliya va qimmatli qog'ozlar bozori mutaxassisi; investitsiyalarni boshqaruvchi; xalqaro moliyachi; bank xodimi; bank hisobchisi va auditor-buxgalter; byudjet hisobchisi-menejeri.
+- Moliya va moliyaviy texnologiyalar: bank ishi va investitsiyalar mutaxassisi; FinTech startaplarda moliyaviy texnolog; blokcheyn va kriptovalyutalar mutaxassisi; raqamli to'lov tizimlari ishlab chiquvchi; moliyaviy xavflarni boshqaruvchi; korporativ moliya va audit mutaxassisi; sug'urta mutaxassisi. Klassik moliya bilan birga blokcheyn, sun'iy intellekt, big data va raqamli to'lovlar o'rganiladi.
+- Buxgalteriya hisobi: korxona va tashkilotlarda buxgalter; auditor; soliq mutaxassisi; moliyaviy hisobot tahlilchisi; bank hisobchisi; davlat byudjeti hisobchisi. O'z auditorlik yoki moliyaviy maslahat firmasini ochish mumkin.
+- Psixologiya: korxona va tashkilotlarda psixolog; sport jamoasi psixologi; shaxsiy maslahat va psixologik xizmat; aholiga psixologik xizmat markazlari rahbari; harbiy va huquqni muhofaza qilish (ichki ishlar) idoralarida psixolog; HR va kadrlar tanlash mutaxassisi; ilmiy tadqiqotchi; savdo va xizmat ko'rsatish sohasida psixolog. O'z kabinetini ochish mumkin.
+- Filologiya (ingliz tili): maktab va ta'lim muassasalarida ingliz tili o'qituvchisi; tarjimon; tahririyat va nashriyotlarda muharrir; ilmiy xodim; kutubxona va fondlarda mutaxassis; onlayn til o'rgatish va xususiy kurs.
+- Filologiya (o'zbek tili): o'zbek tili o'qituvchisi; muharrir; tarjimon; ilmiy xodim; davlat idoralarida hujjat mutaxassisi (davlat tili bo'lgani uchun davlat tashkilotlarida talab yuqori).
+- Filologiya (rus tili): rus tili o'qituvchisi; tarjimon; muharrir; xalqaro tashkilotlarda mutaxassis; ilmiy xodim (Rossiya va MDH kompaniyalari bilan ishlash uchun talab bor).
+- Maktabgacha ta'lim: bog'chada tarbiyachi; ixtisoslashtirilgan bolalar muassasalarida tarbiyachi; oilaviy tarbiyachi; mehribonlik uyi tarbiyachisi; xususiy bog'cha egasi (xususiy bog'chalar sektori tez o'smoqda).
+- Boshlang'ich ta'lim: boshlang'ich sinf o'qituvchisi; o'qituvchi-tarbiyachi; qo'shimcha ta'lim pedagogi; uslubiy ish rahbari; o'qituvchi-psixolog; direktorning o'quv yoki ma'naviy-ma'rifiy ishlar bo'yicha o'rinbosari; mahallada yoshlar yetakchisi; pedagog-targ'ibotchi; vazirlikda metodist. Xususiy maktab yoki o'quv markazi ochish mumkin.
+- Milliy g'oya, ma'naviyat asoslari va huquq ta'limi: huquq ta'limi fani o'qituvchisi; ta'lim vazirligi tizimidagi idoralarda xodim; davlat boshqaruv organlarida mutaxassis; Fanlar akademiyasida ilmiy-pedagogik xodim; ilmiy-tadqiqot institutlarida tadqiqotchi; ta'lim muassasalarida direktor, laborant, kabinet mudiri.
+- Neft va gaz ishi: neft va gaz konlari operatori; konlar mashina va jihozlari mashinisti; neft va gaz quduqlari burg'ulovchisi. Dunyodagi eng serdaromad sohalardan biri; Qashqadaryo — O'zbekistonning neft-gaz markazi.
+
+YO'NALISH TANLASHDA YO'L-YO'RIQ
+- Dasturlash va texnologiyani yoqtirsa — Dasturiy injiniring.
+- Biznes, moliya, raqamli iqtisodiyotni yoqtirsa — Iqtisodiyot, Moliya va moliyaviy texnologiyalar yoki Buxgalteriya hisobi.
+- Tillar va muloqotni yoqtirsa — Filologiya (ingliz, o'zbek, rus, nemis).
+- Odamlarni tushunish, psixologiya, ichki ishlar sohasi — Psixologiya.
+- Jamiyat, huquq, ma'naviyat — Milliy g'oya, ma'naviyat asoslari va huquq ta'limi.
+- Bolalar bilan ishlash — Maktabgacha yoki Boshlang'ich ta'lim.
+- Energetika va muhandislik — Neft va gaz ishi.
+
 TEZ-TEZ BERILADIGAN SAVOLLAR UCHUN TAYANCH MA'LUMOT
 - 4 yillik o'qishning jami kontrakti (joriy 2026–2027 narxlarda; narx har yili o'zgarishi mumkin): 12 850 000 so'mlik yo'nalishlarda — 51 400 000 so'm; 14 900 000 so'mlik yo'nalishlarda — 59 600 000 so'm. Maktabgacha ta'lim (3 yil) — 38 550 000 so'm. Magistratura (2 yil) — 36 000 000 so'm.
 - Eng arzon kontrakt: 12 850 000 so'm (pedagogika, filologiya, psixologiya, dasturiy injiniring, neft va gaz ishi). Eng qisqa o'qish: Maktabgacha ta'lim — 3 yil.
 - Ota-onalar uchun muhim: universitet davlat litsenziyasi va akkreditatsiyaga ega, bitiruvchilarga davlat namunasidagi diplom beriladi, rasmiy statistikaga ko'ra bitiruvchilarning 84,3% ishga joylashgan.
 - Kontraktni bo'lib to'lash va 14% lik ta'lim krediti mavjud, shuning uchun to'lovni bir martada qilish shart emas.
 
-TO'LOV
-Kontraktni to'lash usullari: bir martada to'liq to'lash yoki bo'lib-bo'lib to'lash.
-Ta'lim krediti: davlat ko'magi bilan, yillik 14% stavkada.
-To'lov muddatlari va bo'lib to'lash grafigi bo'yicha aniq ma'lumotni +998 55 500 99 44 raqami orqali olish mumkin.
+TO'LOV, KREDIT VA IMTIYOZLAR
+- To'lovni darhol to'liq to'lash shart emas: kontraktni bir yil davomida 4 ga bo'lib to'lash mumkin.
+- Ta'lim krediti: yigitlar uchun Markaziy bank foiz stavkasi asosida — yillik 14%. Xotin-qizlar uchun davlat tomonidan foizsiz ta'lim krediti — 7 yil muddatga.
+- "Yoshlar daftari"ga kiritilgan bo'lsa, kontraktning 50% gacha qismini Yoshlar ishlari agentligi to'lab beradi.
+- Semestrni a'lo baholarga yopgan talaba to'liq grant asosida, ya'ni butunlay bepul o'qishi mumkin.
+- Chegirmalar: ota-onasi pedagog bo'lsa — 1 000 000 so'm; ota-onasi biror tashkilotda farrosh yoki qorovul bo'lib ishlasa — 3 000 000 so'm; oiladan bir nechta farzand o'qisa — har biriga alohida chegirma.
+- Qaysi imtiyoz mos kelishini aniqlash uchun foydalanuvchidan vaziyatini so'ra (ota-onasi qayerda ishlaydi, oilada boshqa o'qiydigan bormi, Yoshlar daftarida bormi, qiz yoki yigit) va mosini tushuntir.
 
 GRANTLAR, CHEGIRMALAR VA STIPENDIYALAR
-- KIU'da grant o'rinlari mavjud (universitet "milliard so'mlik grant o'rinlari" deb e'lon qiladi). Grant shartlari va unga qanday talabgor bo'lish bo'yicha +998 55 500 99 44 raqamidan aniqlashtirish kerak.
+- KIU'da grant o'rinlari mavjud (universitet "milliard so'mlik grant o'rinlari" deb e'lon qiladi). Semestrni a'lo baholarga yopgan talaba to'liq grant asosida bepul o'qiydi. Bundan tashqari PQ-279 qaroriga ko'ra nodavlat OTMlarga bu yil 1200 ta davlat grant o'rni ajratilgan.
 - Universitet tanlov va tadbirlarida kontrakt va yotoqxona uchun chegirmalar beriladi. Masalan, 2026-yilgi "Mutolaa" kitobxonlik marafonida: 1–2-o'rin — kontraktga 50–100% chegirma, 3-o'rin — talabalar turar joyi (TTJ) uchun yillik 100% chegirma, 4–5-o'rin — TTJ uchun yillik 50% chegirma.
 - Talabalar Prezident va nomli davlat stipendiyalari tanlovlarida qatnashadi (2026–2027 o'quv yili uchun saralash bosqichi e'lon qilingan).
 - Talabalar hududiy stipendiyalarni ham yutadi: 2025–2026 o'quv yilida KIU Boshlang'ich ta'lim yo'nalishi talabasi Qashqadaryo viloyati hokimi stipendiyasi g'olibi bo'lgan (sentabrdan iyungacha har oy BHMning 3 baravari miqdorida qo'shimcha stipendiya).
 
 YOTOQXONA
-Talabalar turar joyi (TTJ) mavjud. Yotoqxona narxi, joylar soni va sharoiti bo'yicha +998 55 500 99 44 raqamidan aniqlashtirish kerak.
+Yotoqxona mavjud. Yotoqxonadan universitet binosigacha bepul avtobus qatnaydi — boshqa tumandan kelganlarga transport xarajati yo'q. Yotoqxona narxi va joylar bo'yicha batafsil ma'lumotni qabul bo'limi (+998 55 500 99 44) beradi.
 
 XALQARO IMKONIYATLAR
 - Xalqaro hamkorlik, talabalar almashinuvi, xorijiy universitetlar bilan hamkorlik va qo'shma diplom dasturlari universitetning asosiy yo'nalishlaridan.
@@ -163,7 +206,7 @@ TALABALAR HAYOTI VA RIVOJLANISH
 - 16 ta rivojlanish to'garagi mavjud.
 - Intellektual loyihalar: Zakovat, Brain Ring, Munozara, "Mutolaa" kitobxonlik marafoni, olimpiada va tanlovlar.
 - Tadbirlar: Talaba Fest (sport, musiqa, karaoke, robototexnika, talabalar teatri, Zakovat, Munozara, milliy taomlar va boshqalar), Milliy Fashion Show (milliy liboslar va podium namoyishlari), diplom topshirish marosimi.
-- Universitetda masofaviy ta'lim, kutubxona, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud.
+- Universitetda kutubxona, chet elda ta'lim imkoniyatlari, o'qishni ko'chirish va kredit kalkulyatori xizmatlari mavjud.
 
 TA'LIM MODELI VA INFRATUZILMA
 - Zamonaviy ta'lim: xalqaro standartlarga mos o'quv dasturlari va zamonaviy pedagogik metodlar.
@@ -181,4 +224,10 @@ NEGA AYNAN KIU? (abituriyent va ota-onalar so'rasa, shu faktlarga tayan)
 - 16 ta rivojlanish to'garagi, Zakovat, Brain Ring, Mutolaa, Talaba Fest kabi faol talabalik hayoti.
 - Qulay to'lov: bo'lib to'lash va 14% lik ta'lim krediti.
 - Onlayn qabul: ro'yxatdan o'tish 1 daqiqa, bepul.
+- Shahar markazida joylashuv — yo'lga vaqt va pul tejaladi.
+- Xorijda tahsil olgan va xorijlik professor-o'qituvchilar.
+- Yotoqxonadan binogacha bepul avtobus.
+- Haftada 4 kunlik o'qish va kechki ta'lim — o'qishni ish bilan birga olib borish mumkin.
+- Ko'p imtiyozlar: a'lochilarga to'liq grant, 4 ga bo'lib to'lash, qizlarga foizsiz kredit, Yoshlar daftari orqali 50% gacha, oilaviy chegirmalar.
+- Shablondan chiqib fikrlaydigan, erkin, zamonaviy yoshlar muhiti.
 Boshqa universitetlarni yomonlama va ular haqida taxmin qilma — faqat KIU'ning afzalliklarini ayt.
