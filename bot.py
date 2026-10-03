@@ -29,6 +29,7 @@ log = logging.getLogger("kiu-bot")
 
 # Diagnostika: oxirgi xatolar va hodisalar (/status sahifasida ko'rinadi)
 recent_errors: deque = deque(maxlen=8)
+recent_updates: deque = deque(maxlen=10)  # matnsiz: faqat turi va qayerga yo'naltirilgani
 diag = {"updates": 0, "last_update": None, "sent": 0, "last_sent": None, "processed": 0}
 
 
@@ -847,23 +848,36 @@ def broadcast(source_msg_id: int | None, body: str):
 
 
 # ======================= Routing =======================
+def note_update(update: dict, route: str):
+    kinds = ",".join(k for k in update if k != "update_id") or "bo'sh"
+    msg = update.get("message") or (update.get("callback_query") or {}).get("message") or {}
+    chat_type = msg.get("chat", {}).get("type", "-")
+    recent_updates.append(f"{time.strftime('%H:%M:%S', time.gmtime(time.time() + 5 * 3600))} "
+                          f"{kinds} | chat: {chat_type} | {route}")
+
+
 def process_update(update: dict):
     diag["processed"] += 1
     try:
         if "callback_query" in update:
             cb = update["callback_query"]
-            chat_id = (cb.get("message") or {}).get("chat", {}).get("id") or cb["from"]["id"]
+            note_update(update, f"tugma: {(cb.get('data') or '')[:20]}")
             handle_callback(cb)
             return
         msg = update.get("message")
         if not msg:
+            note_update(update, "e'tiborsiz: message yo'q")
             return
         chat = msg.get("chat", {})
         if ADMIN_CHAT_ID and chat.get("id") == ADMIN_CHAT_ID:
+            note_update(update, "admin guruh")
             handle_admin(msg)
         elif chat.get("type") == "private":
+            note_update(update, "shaxsiy chat")
             handle_private(msg)
-        # boshqa guruhlarda javob bermaymiz
+        else:
+            # boshqa guruhlarda javob bermaymiz
+            note_update(update, "e'tiborsiz: guruh (ADMIN_CHAT_ID emas)")
     except Exception:
         log.exception("Update'ni qayta ishlashda xato: %s", str(update)[:500])
         chat_id = ((update.get("message") or (update.get("callback_query") or {}).get("message") or {})
@@ -980,6 +994,7 @@ def status():
         f"Kelgan xabarlar: {diag['updates']} (oxirgisi {ago(diag['last_update'])}), "
         f"qayta ishlangan: {diag['processed']}, navbatda: {executor._work_queue.qsize()}",
         f"Yuborilgan javoblar: {diag['sent']} (oxirgisi {ago(diag['last_sent'])})",
+        "Oxirgi kelgan xabarlar:\n  " + ("\n  ".join(recent_updates) if recent_updates else "yo'q"),
         "Oxirgi xatolar:\n  " + ("\n  ".join(recent_errors) if recent_errors else "yo'q"),
         f"Versiya: {os.environ.get('RENDER_GIT_COMMIT', 'nomalum')[:7]}, Python {sys.version.split()[0]}",
     ]
