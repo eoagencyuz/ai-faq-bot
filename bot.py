@@ -1199,6 +1199,24 @@ def status():
 
 threading.Thread(target=resolve_admin_chat, daemon=True).start()
 
+
+def keep_awake():
+    """Render'ning bepul serveri 15 daqiqa so'rovsiz qolsa uxlaydi — har 10 daqiqada o'zimizga murojaat qilamiz."""
+    url = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+    if not url:
+        return
+    while True:
+        time.sleep(KEEP_AWAKE_SECONDS)
+        try:
+            requests.get(f"{url}/", timeout=30)
+        except requests.RequestException as e:
+            log.warning("Keep-awake xatosi: %s", type(e).__name__)
+
+
+KEEP_AWAKE_SECONDS = int(os.environ.get("KEEP_AWAKE_SECONDS", 600))
+if KEEP_AWAKE_SECONDS > 0:
+    threading.Thread(target=keep_awake, daemon=True).start()
+
 # Render'da deploydan so'ng webhook avtomatik o'rnatiladi
 if os.environ.get("RENDER_EXTERNAL_URL"):
     threading.Thread(target=register_webhook, args=(os.environ["RENDER_EXTERNAL_URL"].rstrip("/"),),
