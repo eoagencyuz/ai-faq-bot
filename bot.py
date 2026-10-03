@@ -364,17 +364,36 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
         "contents": contents[-MAX_HISTORY:],
         "generationConfig": {"temperature": 0.9, "topP": 0.95, "maxOutputTokens": 1500},
     }
+    answer = gemini_generate(body)
+    if not answer:
+        return ERROR_TEXT, False
+    noinfo = NOINFO in answer
+    answer = answer.replace(NOINFO, "").strip() or ERROR_TEXT
+    if history_text is None:
+        history_text = " ".join(p["text"] for p in parts if "text" in p)
+    msgs += [{"role": "user", "parts": [{"text": history_text}]},
+             {"role": "model", "parts": [{"text": answer}]}]
+    with state_lock:
+        history[chat_id] = msgs[-MAX_HISTORY:]
+        history.move_to_end(chat_id)
+        while len(history) > MAX_CHATS:
+            history.popitem(last=False)
+    return answer, noinfo
+
+
+def gemini_generate(body: dict, deadline: float = GEMINI_DEADLINE, timeout: float = 20) -> str | None:
+    """Modellarni navbat bilan sinab, birinchi muvaffaqiyatli javob matnini qaytaradi."""
     answer = None
     started = time.monotonic()
     for attempt in range(2):
         if attempt and time.monotonic() - started > 20:
             break  # foydalanuvchini uzoq kutdirmaymiz
         for model in ordered_models():
-            if time.monotonic() - started > GEMINI_DEADLINE:
+            if time.monotonic() - started > deadline:
                 break
             try:
                 r = http.post(GEMINI_URL.format(model), json=body,
-                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=20)
+                              headers={"x-goog-api-key": GEMINI_API_KEY}, timeout=timeout)
                 if r.status_code != 200:
                     log.warning("Gemini xato %s %s: %s", model, r.status_code, r.text[:300])
                     cool_down(model, r.status_code)
@@ -390,20 +409,7 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
         if answer:
             break
         time.sleep(2)
-    if not answer:
-        return ERROR_TEXT, False
-    noinfo = NOINFO in answer
-    answer = answer.replace(NOINFO, "").strip() or ERROR_TEXT
-    if history_text is None:
-        history_text = " ".join(p["text"] for p in parts if "text" in p)
-    msgs += [{"role": "user", "parts": [{"text": history_text}]},
-             {"role": "model", "parts": [{"text": answer}]}]
-    with state_lock:
-        history[chat_id] = msgs[-MAX_HISTORY:]
-        history.move_to_end(chat_id)
-        while len(history) > MAX_CHATS:
-            history.popitem(last=False)
-    return answer, noinfo
+    return answer
 
 
 def reply_with_ai(chat_id: int, user_id: int, parts: list[dict], history_text: str | None = None,
@@ -537,6 +543,7 @@ def handle_registration(chat_id: int, msg: dict, st: dict):
     name = st["name"]
     clear_state(chat_id)
     db.set_registration(chat_id, name, phone)
+    schedule_backup()
     db.log_event(chat_id, "register")
     send(chat_id, WELCOME_TEXT.format(name=f", {html.escape(name)}"), MAIN_KEYBOARD)
     if ADMIN_CHAT_ID:
@@ -609,6 +616,7 @@ def handle_lead_step(chat_id: int, msg: dict, st: dict):
 def finish_lead(chat_id: int, user: dict, name: str, phone: str, program: str):
     clear_state(chat_id)
     lead_id = db.add_lead(chat_id, name, phone, program)
+    schedule_backup()
     db.log_event(chat_id, "lead")
     send(chat_id, f"🎉 <b>Rahmat, {html.escape(name)}!</b>\n\n"
                   "Arizangiz qabul qilindi. Qabul bo'limi xodimlari tez orada "
@@ -857,9 +865,102 @@ def handle_callback(cb: dict):
 ADMIN_COMMANDS = {"/stats", "/leads", "/broadcast", "/export", "/addinfo", "/info", "/delinfo", "/gaps", "/admin"}
 
 
+def has_file(msg: dict) -> bool:
+    doc = msg.get("document") or {}
+    return bool(msg.get("photo") or re.match(r"^(image/|application/pdf|text/)", doc.get("mime_type", "")))
+
+
+def extract_facts(msg: dict, hint: str = "") -> str | None:
+    """PDF/rasmdan KIU haqidagi faktlarni Gemini yordamida ro'yxat qilib ajratadi."""
+    media = msg["photo"][-1] if msg.get("photo") else msg["document"]
+    mime = "image/jpeg" if msg.get("photo") else media.get("mime_type", "application/pdf")
+    if media.get("file_size", 0) > MAX_FILE_BYTES:
+        return None
+    data = download_file(media["file_id"])
+    if not data:
+        return None
+    prompt = ("Quyidagi hujjatdan Qarshi xalqaro universiteti (KIU) qabul bo'limi chat-boti uchun kerakli "
+              "barcha aniq faktlarni ajratib ber: narxlar, sanalar, muddatlar, shartlar, imtiyozlar, chegirmalar, "
+              "hujjatlar, manzillar, telefonlar, havolalar, yo'nalishlar, tadbirlar va boshqalar. "
+              "O'zbek tilida (lotin), har bir fakt alohida qatorda \"- \" bilan, qisqa va aniq yoz. "
+              "Faqat hujjatda bor narsani yoz, o'zingdan hech narsa qo'shma va izoh berma.")
+    if hint:
+        prompt += f"\nAdmin izohi: {hint}"
+    body = {"contents": [{"role": "user", "parts": [
+                {"inline_data": {"mime_type": mime, "data": base64.b64encode(data).decode()}},
+                {"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 4000}}
+    return gemini_generate(body, deadline=120, timeout=90)
+
+
+# --- Zaxira nusxa: Render bazani tozalasa ham ma'lumot admin chatdagi pin qilingan faylda saqlanadi ---
+BACKUP_PREFIX = "kiu_bot_backup"
+_backup = {"dirty": False, "last_msg": None}
+
+
+def schedule_backup():
+    _backup["dirty"] = True
+
+
+def save_backup():
+    import json
+    data = json.dumps(db.snapshot(), ensure_ascii=False).encode("utf-8")
+    name = f"{BACKUP_PREFIX}_{time.strftime('%Y%m%d_%H%M')}.json"
+    try:
+        r = http.post(f"{TG_API}/sendDocument", timeout=60, data={
+            "chat_id": ADMIN_CHAT_ID, "disable_notification": "true",
+            "caption": "🗄 Bot zaxira nusxasi (ro'yxatdan o'tganlar, arizalar, /addinfo ma'lumotlari). "
+                       "O'chirmang va pindan olmang — bot qayta ishga tushganda shundan tiklanadi."},
+            files={"document": (name, data, "application/json")}).json()
+    except (requests.RequestException, ValueError) as e:
+        log.warning("Zaxira yuborilmadi: %s", type(e).__name__)
+        return
+    if not r.get("ok"):
+        log.warning("Zaxira yuborilmadi: %s", r.get("description"))
+        return
+    mid = r["result"]["message_id"]
+    tg("pinChatMessage", chat_id=ADMIN_CHAT_ID, message_id=mid, disable_notification=True)
+    if _backup["last_msg"]:
+        tg("deleteMessage", chat_id=ADMIN_CHAT_ID, message_id=_backup["last_msg"])
+    _backup["last_msg"] = mid
+    _backup["dirty"] = False
+
+
+def restore_backup():
+    """Ishga tushganda admin chatdagi pin qilingan zaxira faylidan bazani tiklaydi."""
+    import json
+    chat = tg("getChat", chat_id=ADMIN_CHAT_ID) or {}
+    pinned = chat.get("pinned_message") or {}
+    doc = pinned.get("document") or {}
+    if not doc.get("file_name", "").startswith(BACKUP_PREFIX):
+        log.warning("Zaxira topilmadi (admin chatda pin qilingan %s fayli yo'q)", BACKUP_PREFIX)
+        return
+    raw = download_file(doc["file_id"])
+    try:
+        counts = db.restore(json.loads(raw or b"{}"))
+    except (ValueError, KeyError, TypeError) as e:
+        log.warning("Zaxirani o'qib bo'lmadi: %s", type(e).__name__)
+        return
+    _backup["last_msg"] = pinned.get("message_id")
+    log.warning("Zaxiradan tiklandi: %s", counts)
+
+
+def backup_loop():
+    while True:
+        time.sleep(BACKUP_INTERVAL)
+        if _backup["dirty"]:
+            try:
+                save_backup()
+            except Exception:
+                log.exception("Zaxira xatosi")
+
+
+BACKUP_INTERVAL = int(os.environ.get("BACKUP_INTERVAL", 60))
+
+
 def is_admin_action(msg: dict) -> bool:
     """Shaxsiy admin chatida faqat admin buyruqlari va ariza/xabarlarga reply admin hisoblanadi."""
-    text = (msg.get("text") or "").strip()
+    text = (msg.get("text") or msg.get("caption") or "").strip()
     command = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
     if command in ADMIN_COMMANDS:
         return True
@@ -870,7 +971,7 @@ def is_admin_action(msg: dict) -> bool:
 
 def handle_admin(msg: dict):
     here = msg["chat"]["id"]  # buyruq qaysi admin chatdan kelgan bo'lsa, javob o'sha yerga
-    text = (msg.get("text") or "").strip()
+    text = (msg.get("text") or msg.get("caption") or "").strip()
     command = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
     reply = msg.get("reply_to_message")
 
@@ -907,15 +1008,29 @@ def handle_admin(msg: dict):
         export_csv(here)
     elif command == "/addinfo":
         body = text[len(text.split()[0]):].strip()
-        if not body and reply:
+        source = msg if has_file(msg) else (reply if reply and has_file(reply) else None)
+        if source:
+            send(here, "⏳ Fayl o'qilmoqda, bir oz kuting...", reply_to=msg["message_id"])
+            facts = extract_facts(source, body)
+            if not facts:
+                send(here, "😔 Fayldan ma'lumot ajratib bo'lmadi. Fayl 10 MB dan kichik PDF yoki rasm "
+                           "ekanini tekshiring yoki matnini /addinfo bilan yuboring.", reply_to=msg["message_id"])
+                return
+            body = facts
+        elif not body and reply:
             body = (reply.get("text") or reply.get("caption") or "").strip()
         if len(body) < 5:
-            send(here, "Foydalanish: <code>/addinfo Yotoqxona bor, oyiga 500 000 so'm.</code>\n"
-                                "Yoki matnli xabarga reply qilib <code>/addinfo</code> yozing.",
-                 reply_to=msg["message_id"])
+            send(here, "Foydalanish:\n"
+                       "- <code>/addinfo Yotoqxona bor, oyiga 500 000 so'm.</code>\n"
+                       "- matnli xabarga reply qilib <code>/addinfo</code>\n"
+                       "- PDF yoki rasmni <code>/addinfo</code> izohi bilan yuboring (yoki faylga reply qiling) — "
+                       "bot undagi faktlarni o'zi ajratib oladi.", reply_to=msg["message_id"])
             return
-        kid = db.add_knowledge(body[:3000], (msg.get("from") or {}).get("first_name", ""))
-        send(here, f"✅ Bazaga qo'shildi (#{kid}). Bot endi shu ma'lumot asosida javob beradi.",
+        kid = db.add_knowledge(body[:8000], (msg.get("from") or {}).get("first_name", ""))
+        schedule_backup()
+        preview = html.escape(body[:3000]) + ("…" if len(body) > 3000 else "")
+        send(here, f"✅ Bazaga qo'shildi (#{kid}). Bot endi shu ma'lumot asosida javob beradi."
+                   + (f"\n\n<b>Ajratilgan ma'lumot:</b>\n{preview}" if source else ""),
              reply_to=msg["message_id"])
     elif command == "/info":
         rows = db.list_knowledge()
@@ -929,6 +1044,8 @@ def handle_admin(msg: dict):
     elif command == "/delinfo":
         arg = text[len(text.split()[0]):].strip().lstrip("#")
         ok = arg.isdigit() and db.delete_knowledge(int(arg))
+        if ok:
+            schedule_backup()
         send(here, f"🗑 #{arg} o'chirildi." if ok else "Topilmadi. Raqamni /info dan oling.",
              reply_to=msg["message_id"])
     elif command == "/gaps":
@@ -948,6 +1065,7 @@ def handle_admin(msg: dict):
                             "/broadcast matn — barcha foydalanuvchilarga xabar\n\n"
                             "📚 <b>Bilim bazasi</b>\n"
                             "/addinfo matn — bazaga yangi ma'lumot qo'shish\n"
+                            "PDF yoki rasm + /addinfo izohi — bot fayldagi faktlarni o'zi o'qib qo'shadi\n"
                             "/info — qo'shilgan ma'lumotlar ro'yxati\n"
                             "/delinfo raqam — ma'lumotni o'chirish\n"
                             "/gaps — bot javob topa olmagan savollar\n\n"
@@ -1218,7 +1336,16 @@ def status():
     return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
 
 
-threading.Thread(target=resolve_admin_chat, daemon=True).start()
+def startup():
+    resolve_admin_chat()
+    try:
+        restore_backup()
+    except Exception:
+        log.exception("Zaxirani tiklashda xato")
+    backup_loop()
+
+
+threading.Thread(target=startup, daemon=True).start()
 
 
 def keep_awake():

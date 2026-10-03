@@ -189,3 +189,49 @@ def recent_gaps(limit: int = 20):
     since = int(time.time()) - 30 * 86400
     return _query("""SELECT question, COUNT(*) n, MAX(created_at) last FROM gaps WHERE created_at>=?
                      GROUP BY lower(question) ORDER BY n DESC, last DESC LIMIT ?""", (since, limit))
+
+
+# --- Zaxira nusxa (Telegram'dagi pin qilingan faylda saqlanadi, Render bazani tozalasa ham) ---
+def snapshot() -> dict:
+    return {
+        "v": 1,
+        "created_at": int(time.time()),
+        "knowledge": [dict(r) for r in _query("SELECT text, author, created_at FROM knowledge ORDER BY id")],
+        "users": [dict(r) for r in _query(
+            "SELECT id, first_name, last_name, username, full_name, phone, registered_at, created_at "
+            "FROM users WHERE phone IS NOT NULL")],
+        "leads": [dict(r) for r in _query(
+            "SELECT user_id, name, phone, program, created_at FROM leads ORDER BY id DESC LIMIT 2000")][::-1],
+    }
+
+
+def restore(data: dict) -> dict:
+    """Bo'sh jadvallarni zaxiradan to'ldiradi; mavjud ma'lumotlarni o'zgartirmaydi."""
+    global _knowledge_cache
+    counts = {"knowledge": 0, "users": 0, "leads": 0}
+    with _lock:
+        if not _conn.execute("SELECT 1 FROM knowledge LIMIT 1").fetchone():
+            for k in data.get("knowledge", []):
+                _conn.execute("INSERT INTO knowledge (text, author, created_at) VALUES (?, ?, ?)",
+                              (k.get("text"), k.get("author"), k.get("created_at")))
+                counts["knowledge"] += 1
+        for u in data.get("users", []):
+            if _conn.execute("SELECT 1 FROM users WHERE id=? AND phone IS NOT NULL", (u["id"],)).fetchone():
+                continue
+            _conn.execute("""INSERT INTO users (id, first_name, last_name, username, full_name, phone,
+                                 registered_at, created_at, last_seen, blocked)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                             ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, phone=excluded.phone,
+                                 registered_at=excluded.registered_at""",
+                          (u["id"], u.get("first_name"), u.get("last_name"), u.get("username"), u.get("full_name"),
+                           u.get("phone"), u.get("registered_at"), u.get("created_at"), u.get("created_at")))
+            counts["users"] += 1
+        if not _conn.execute("SELECT 1 FROM leads LIMIT 1").fetchone():
+            for ld in data.get("leads", []):
+                _conn.execute("INSERT INTO leads (user_id, name, phone, program, created_at) VALUES (?, ?, ?, ?, ?)",
+                              (ld.get("user_id"), ld.get("name"), ld.get("phone"), ld.get("program"),
+                               ld.get("created_at")))
+                counts["leads"] += 1
+        _conn.commit()
+    _knowledge_cache = None
+    return counts
