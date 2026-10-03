@@ -787,7 +787,8 @@ def handle_private(msg: dict):
         return
 
     if command == "/help":
-        send(chat_id, HELP_TEXT, MAIN_KEYBOARD)
+        extra = "\n\n🛠 Siz adminsiz: admin buyruqlari — /admin" if chat_id in ADMIN_CHATS else ""
+        send(chat_id, HELP_TEXT + extra, MAIN_KEYBOARD)
     elif command == "/contact" or text == BTN_CONTACT:
         send(chat_id, CONTACT_TEXT, LINK_BUTTONS)
     elif command == "/apply":
@@ -853,6 +854,20 @@ def handle_callback(cb: dict):
 
 
 # ======================= Admin =======================
+ADMIN_COMMANDS = {"/stats", "/leads", "/broadcast", "/export", "/addinfo", "/info", "/delinfo", "/gaps", "/admin"}
+
+
+def is_admin_action(msg: dict) -> bool:
+    """Shaxsiy admin chatida faqat admin buyruqlari va ariza/xabarlarga reply admin hisoblanadi."""
+    text = (msg.get("text") or "").strip()
+    command = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
+    if command in ADMIN_COMMANDS:
+        return True
+    reply = msg.get("reply_to_message")
+    return bool(reply and not command and msg["chat"]["id"] == ADMIN_CHAT_ID
+                and db.relay_user(reply["message_id"]))
+
+
 def handle_admin(msg: dict):
     here = msg["chat"]["id"]  # buyruq qaysi admin chatdan kelgan bo'lsa, javob o'sha yerga
     text = (msg.get("text") or "").strip()
@@ -926,7 +941,7 @@ def handle_admin(msg: dict):
         send(here, "❓ <b>Bot aniq javob bera olmagan savollar</b> (oxirgi 30 kun)\n\n"
              + "\n".join(lines) + "\n\nJavoblarni <code>/addinfo</code> bilan bazaga qo'shing.",
              reply_to=msg["message_id"])
-    elif command == "/help":
+    elif command in ("/help", "/admin"):
         send(here, "🛠 <b>Admin buyruqlari</b>\n\n"
                             "/stats — statistika\n/leads — oxirgi 10 ta ariza\n"
                             "/export — arizalar va ro'yxatdan o'tganlar (Excel/CSV)\n"
@@ -1064,8 +1079,13 @@ def process_update(update: dict):
                 set_admin_chat(ADMIN_GROUP_ID, "guruhdan xabar keldi")
                 send(ADMIN_GROUP_ID, "✅ Bu guruh <b>admin guruh</b> sifatida ulandi. Arizalar, ro'yxatdan "
                                      "o'tganlar va operator chat endi shu yerga keladi. Buyruqlar: /help")
-            note_update(update, "admin chat")
-            handle_admin(msg)
+            if chat.get("type") == "private" and not is_admin_action(msg):
+                # Admin xodimning shaxsiy chati: buyruq/reply bo'lmasa — oddiy foydalanuvchi sifatida
+                note_update(update, "shaxsiy chat (admin)")
+                handle_private(msg)
+            else:
+                note_update(update, "admin chat")
+                handle_admin(msg)
         elif chat.get("type") == "private":
             note_update(update, "shaxsiy chat")
             handle_private(msg)
@@ -1131,7 +1151,8 @@ def register_webhook(base: str) -> dict | None:
             {"command": "addinfo", "description": "Bazaga ma'lumot qo'shish"},
             {"command": "info", "description": "Qo'shilgan ma'lumotlar"},
             {"command": "gaps", "description": "Javobsiz qolgan savollar"},
-            {"command": "help", "description": "Admin yordam"},
+            {"command": "admin", "description": "Admin buyruqlari"},
+            {"command": "start", "description": "Botni oddiy foydalanuvchi sifatida boshlash"},
         ])
     return result
 
