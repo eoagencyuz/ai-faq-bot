@@ -102,6 +102,21 @@ ASOSIY TAMOYILLAR
 5. Shunchaki ma'lumot sanab berma — tushuntir: nima uchun, kimga mos, qanday afzalligi bor, misol keltir, kerak bo'lsa ikki yo'nalishni solishtir yoki hisob-kitob qilib ber (masalan, 4 yillik jami kontrakt).
 6. Javob oxirida har doim bir xil taklif qilma. Qabulga yo'naltirish, "{BTN_LEAD}", "{BTN_QUIZ}" yoki telefon raqamni faqat o'rinli bo'lganda va oxirgi bir necha xabarda aytmagan bo'lsang taklif qil. Ba'zan suhbatni davom ettiruvchi qiziq savol berish yetarli.
 
+SUHBAT USULI (qabul bo'limi call-markazi tajribasi asosida)
+- Avval tingla, keyin taklif qil. Foydalanuvchining maqsadini bilmasang, birdaniga hamma afzallikni sanama — bitta aniq savol ber: qaysi yo'nalish qiziqtiradi, siz uchun eng muhimi nima (yaxshi ish topishmi, o'qishni ish bilan birga olib borishmi, narx/imtiyozlarmi, yotoqxonami), abituriyentmisiz yoki ota-onami.
+- Uning ehtiyojiga eng mos 2–3 ta dalilni tanla. Masalan, "ish topish" muhim desa — bandlik statistikasi va o'qish davrida ishlash imkoniyati; "pul" muhim desa — bo'lib to'lash, kreditlar, chegirmalar, a'lochilarga grant; "uzoqdan kelaman" desa — yotoqxona va bepul avtobus; "ishlayman" desa — kechki ta'lim va haftada 4 kunlik o'qish.
+- Narx so'ralsa — aniq narxni ayt va shu zahoti uni yengillashtiradigan imkoniyatlarni qo'sh (4 ga bo'lib to'lash, imtiyozlar). Imtiyozni aniqlash uchun vaziyatini so'ra.
+- E'tiroz — rad emas, qiziqish belgisi. Avval tushunganingni bildir, keyin dalil bilan javob ber:
+  - "O'ylab ko'raman" — bosim qilma; nimasi to'xtatayotganini (narxmi, yo'nalishmi, boshqa savolmi) muloyim so'ra.
+  - "Boshqa universitetlarni ham ko'ryapman" — taqqoslash to'g'ri ekanini tan ol va KIU'ning aniq afzalliklarini ayt (boshqalarni yomonlama).
+  - "Ota-onam bilan maslahatlashaman" — to'g'ri ekanini ayt, ota-onasi bilan birga universitetga kelishni yoki savollarini shu yerda berishni taklif qil.
+  - "Nodavlat ishonchsiz", "yopilib ketmaydimi?" — Konstitutsiya 50-modda, "Ta'lim to'g'risida"gi qonun 31-modda, davlat namunasidagi diplom, licence.gov.uz orqali tekshirish, PQ-200 kafolati.
+  - "Qimmat" — 4 ga bo'lib to'lash, kreditlar, Yoshlar daftari, chegirmalar, a'lochilarga grant, markazda joylashuv tufayli yo'lkiradan tejash.
+- Suhbat qaror bosqichiga kelganda aniq keyingi qadam taklif qil va tanlov ber: universitetga kelib ko'rish, qabul.kiu.uz'da onlayn topshirish (5 daqiqa) yoki "{BTN_LEAD}" orqali raqam qoldirish. Bunday taklifni har xabarda emas, o'rinli paytda qil.
+- Foydalanuvchi rad etsa ham, iliq yakunla: fikri o'zgarsa, har doim yordam berishga tayyor ekaningni ayt.
+- Maqsad — majburlash emas, to'g'ri qaror qabul qilishga yordam berish.
+- Foydalanuvchining ismi ma'lum bo'lsa, ba'zan (har javobda emas) ismi bilan iliq murojaat qil.
+
 FAKTLAR
 - KIU'ga oid aniq faktlarni (narx, muddat, raqam, sana, ism, statistika) faqat quyidagi ma'lumotlardan ol, o'zingdan to'qima. "Qo'shimcha ma'lumotlar" bo'limi eng yangi hisoblanadi.
 - Umumiy mavzularda (kasblar, yo'nalishda nima o'rganiladi, qaysi ishlarda ishlash mumkin, imtihonga tayyorlanish, talabalik hayoti, kasb tanlash, ota-onalarning xavotirlari) o'z bilimingdan bemalol, mazmunli va foydali javob ber.
@@ -121,13 +136,20 @@ USLUB
 === FAQ tugadi ==="""
 
 
-def system_prompt() -> str:
-    """FAQ + admin guruhda /addinfo orqali qo'shilgan ma'lumotlar."""
+user_names: dict[int, str] = {}
+
+
+def system_prompt(chat_id: int | None = None) -> str:
+    """FAQ + admin guruhda /addinfo orqali qo'shilgan ma'lumotlar + suhbatdosh ismi."""
+    prompt = SYSTEM_PROMPT
     extra = db.list_knowledge()
-    if not extra:
-        return SYSTEM_PROMPT
-    items = "\n".join(f"- {r['text']}" for r in extra)
-    return f"{SYSTEM_PROMPT}\n\n=== Qo'shimcha ma'lumotlar (eng yangi) ===\n{items}\n=== Tugadi ==="
+    if extra:
+        items = "\n".join(f"- {r['text']}" for r in extra)
+        prompt += f"\n\n=== Qo'shimcha ma'lumotlar (eng yangi) ===\n{items}\n=== Tugadi ==="
+    name = user_names.get(chat_id) if chat_id else None
+    if name:
+        prompt += f"\n\nSuhbatdoshning Telegram'dagi ismi: {name} (bu haqiqiy ismi bo'lmasligi ham mumkin)."
+    return prompt
 
 MAIN_KEYBOARD = {
     "keyboard": [[{"text": BTN_PROGRAMS}, {"text": BTN_QUIZ}],
@@ -168,7 +190,7 @@ CONTACT_TEXT = (
     "📞 <b>Aloqa</b>\n"
     "Telefon: +998 55 500 99 44\n"
     "Ish vaqti: Dushanba–Shanba, 09:00–20:00\n\n"
-    "📍 <b>Manzil</b>\n"
+    "📍 <b>Manzil</b> — shahar markazi (\"Uzgaz oil\", \"Sifat supermarket\", \"Geolog\" tomonda)\n"
     "1-kampus: Qarshi sh., Bahodir Sherqulov ko'chasi, 7-uy\n"
     "2-kampus: Qarshi sh., Mustaqillik ko'chasi, 71-uy\n\n"
     f"🌐 {SITE_URL}"
@@ -330,7 +352,7 @@ def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None)
         msgs = list(history.get(chat_id, []))
     contents = msgs + [{"role": "user", "parts": parts}]
     body = {
-        "system_instruction": {"parts": [{"text": system_prompt()}]},
+        "system_instruction": {"parts": [{"text": system_prompt(chat_id)}]},
         "contents": contents[-MAX_HISTORY:],
         "generationConfig": {"temperature": 0.9, "topP": 0.95, "maxOutputTokens": 1500},
     }
@@ -643,6 +665,8 @@ def media_parts(msg: dict) -> tuple[list[dict], str, str] | str | None:
 def handle_private(msg: dict):
     chat_id = msg["chat"]["id"]
     user = msg.get("from") or {}
+    if user.get("first_name"):
+        user_names[chat_id] = user["first_name"][:40]
     text = (msg.get("text") or "").strip()
     command = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
 
