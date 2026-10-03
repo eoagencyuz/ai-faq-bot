@@ -69,3 +69,32 @@ Qarshi Xalqaro Universiteti (KIU) qabul bo'limi uchun Telegram bot. Javoblarni G
 
 ## FAQ'ni yangilash
 `faq.txt` faylini tahrirlang va qayta deploy qiling. Yangi yo'nalish qo'shilsa, u `- 60610400 Nomi — 4 yil — 12 850 000 so'm` formatida bo'lishi kerak, shunda test va ariza menyusiga avtomatik tushadi. Uni testda tavsiya qilish uchun `quiz.py` dagi ballarga ham qo'shing.
+
+## Instagram (Direct va kommentlarga AI javob)
+Bot Telegram'dagi AI va bilim bazasidan foydalanib Instagram'da ham javob beradi:
+- **Direct:** har bir xabarga AI javob beradi. Xabarda telefon raqam bo'lsa, admin chatga xabar yuboradi.
+- **Kommentlar:** post ostiga qisqa ochiq javob yozadi va Direct'ga batafsil javob yuboradi ("private reply"). Spam va haqoratga javob bermaydi.
+
+### Sozlash
+1. Instagram akkauntni **Professional (Business yoki Creator)** akkauntga o'tkazing.
+2. Instagram ilovasida: **Sozlamalar → Xabarlar va qo'ng'iroqlar → Ulangan vositalar → "Xabarlarga ruxsat berish"** ni yoqing.
+3. [developers.facebook.com](https://developers.facebook.com) → **My Apps → Create App** (turi: Business) → **Instagram** mahsulotini qo'shing → **API setup with Instagram login**.
+4. **Generate access tokens** bo'limida Instagram akkauntni qo'shing va tokenni nusxalang.
+5. **Configure webhooks** bo'limida:
+   - Callback URL: `https://<render-domen>/instagram/webhook`
+   - Verify token: `kiu-bot-verify` (yoki `IG_VERIFY_TOKEN` ga yozgan so'zingiz)
+   - Obuna bo'ladigan maydonlar: `messages`, `comments`
+6. Render → **Environment**:
+
+| O'zgaruvchi | Tavsif |
+|---|---|
+| `IG_ACCESS_TOKEN` | 4-qadamdagi token |
+| `IG_APP_SECRET` | App settings → Basic → App secret (webhook imzosini tekshirish uchun) |
+| `IG_VERIFY_TOKEN` | ixtiyoriy, standart: `kiu-bot-verify` |
+| `IG_COMMENT_REPLIES` | `0` bo'lsa, kommentlarga ochiq javob yozilmaydi |
+| `IG_PRIVATE_REPLIES` | `0` bo'lsa, kommentchiga Direct'da javob yuborilmaydi |
+
+7. Meta ilovasini **Live** rejimga o'tkazing. Barcha foydalanuvchilarga javob berish uchun Meta `instagram_business_manage_messages` va `instagram_business_manage_comments` ruxsatlariga **App Review** talab qilishi mumkin.
+8. `/status` sahifasida `Instagram: ✅ @akkaunt` chiqishi kerak.
+
+Token taxminan 60 kun amal qiladi. Muddati tugashidan oldin Meta App'da yangi token olib, `IG_ACCESS_TOKEN` ni yangilang.
