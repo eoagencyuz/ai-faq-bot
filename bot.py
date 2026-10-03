@@ -353,14 +353,16 @@ def ordered_models() -> list[str]:
     return ready + [m for m in GEMINI_MODELS if m not in ready]
 
 
-def ask_gemini(chat_id: int, parts: list[dict], history_text: str | None = None) -> tuple[str, bool]:
+def ask_gemini(chat_id, parts: list[dict], history_text: str | None = None,
+               channel_note: str = "") -> tuple[str, bool]:
     """parts — joriy xabar (matn va/yoki fayl). Tarixga faqat history_text (yoki matn qismlari) yoziladi.
+    channel_note — kanalga xos qo'shimcha ko'rsatma (masalan Instagram).
     (javob, bazada ma'lumot topilmadimi) qaytaradi."""
     with state_lock:
         msgs = list(history.get(chat_id, []))
     contents = msgs + [{"role": "user", "parts": parts}]
     body = {
-        "system_instruction": {"parts": [{"text": system_prompt(chat_id)}]},
+        "system_instruction": {"parts": [{"text": system_prompt(chat_id) + channel_note}]},
         "contents": contents[-MAX_HISTORY:],
         "generationConfig": {"temperature": 0.9, "topP": 0.95, "maxOutputTokens": 1500},
     }
@@ -1228,6 +1230,177 @@ def health():
     return "Bot ishlayapti ✅"
 
 
+# ======================= Instagram (Direct va kommentlar) =======================
+# Meta "Instagram API with Instagram Login". Sozlamalar Render Environment'da:
+#   IG_ACCESS_TOKEN — Instagram akkaunt tokeni (Meta App → Instagram → API setup → Generate token)
+#   IG_APP_SECRET   — Meta App → App settings → Basic → App secret (webhook imzosini tekshirish uchun)
+#   IG_VERIFY_TOKEN — webhook sozlashda yoziladigan istalgan so'z (standart: kiu-bot-verify)
+IG_ACCESS_TOKEN = os.environ.get("IG_ACCESS_TOKEN", "").strip()
+IG_APP_SECRET = os.environ.get("IG_APP_SECRET", "").strip()
+IG_VERIFY_TOKEN = os.environ.get("IG_VERIFY_TOKEN", "kiu-bot-verify").strip()
+IG_API = f"https://graph.instagram.com/{os.environ.get('IG_API_VERSION', 'v23.0')}"
+IG_COMMENT_REPLIES = os.environ.get("IG_COMMENT_REPLIES", "1") == "1"   # kommentga ochiq javob
+IG_PRIVATE_REPLIES = os.environ.get("IG_PRIVATE_REPLIES", "1") == "1"   # kommentchiga Direct'da batafsil javob
+TELEGRAM_BOT_URL = "https://t.me/yakubovsschoolbot"
+ig_state = {"user_id": None, "username": None, "error": None, "dm": 0, "comments": 0, "last": None}
+
+IG_DM_NOTE = f"""
+
+KANAL: INSTAGRAM DIRECT
+- Sen KIU'ning Instagram sahifasi nomidan Direct'da yozishyapsan. Telegram tugmalari bu yerda yo'q — ularni tilga olma.
+- Formatlash ishlamaydi: ** belgilar, HTML ishlatma; oddiy matn, kerak bo'lsa "- " ro'yxat va 1–2 emoji.
+- Javob qisqaroq bo'lsin (odatda 1–5 gap), Instagram'da uzun matn o'qilmaydi.
+- Ariza qoldirish, ro'yxatdan o'tish yoki batafsil maslahat uchun o'rinli paytda Telegram botimizni ({TELEGRAM_BOT_URL}), {ADMISSION_URL} yoki {ADMIN_CONTACT} raqamini taklif qil. Foydalanuvchi telefon raqamini yozsa, xodimlar bog'lanishini ayt."""
+
+IG_COMMENT_NOTE = """
+
+KANAL: INSTAGRAM POST OSTIDAGI OCHIQ KOMMENT
+- Bu ommaviy javob — hamma ko'radi. Juda qisqa yoz: 1–2 gap, 250 belgidan oshmasin. ** va HTML ishlatma.
+- Savolga qisqa javob ber; batafsil ma'lumotni Direct'ga yuborganingni ayt ("Batafsil ma'lumotni Direct'ga yubordik 📩" kabi, har safar boshqacha so'zlar bilan).
+- Maqtov yoki emoji bo'lsa — qisqa samimiy rahmat ayt. Haqorat, spam yoki reklama bo'lsa — faqat SKIP so'zini yoz.
+- Shaxsiy ma'lumot (telefon, narx kelishuvi va h.k.) so'rasa, Direct'ga taklif qil."""
+
+
+def ig_request(method: str, path: str, **kwargs) -> dict | None:
+    if not IG_ACCESS_TOKEN:
+        return None
+    try:
+        r = http.request(method, f"{IG_API}/{path}", timeout=30,
+                         headers={"Authorization": f"Bearer {IG_ACCESS_TOKEN}"}, **kwargs)
+        data = r.json()
+    except (requests.RequestException, ValueError) as e:
+        ig_state["error"] = type(e).__name__
+        log.warning("Instagram %s xato: %s", path, type(e).__name__)
+        return None
+    if r.status_code != 200 or "error" in data:
+        msg = (data.get("error") or {}).get("message", "")[:300]
+        ig_state["error"] = f"{r.status_code} {msg}"
+        log.warning("Instagram %s xato %s: %s", path, r.status_code, msg)
+        return None
+    return data
+
+
+def ig_init():
+    """Akkaunt ID va username'ni olamiz (o'z xabar/kommentlarimizga javob bermaslik uchun)."""
+    me = ig_request("GET", "me", params={"fields": "user_id,username"})
+    if me:
+        ig_state["user_id"] = str(me.get("user_id") or me.get("id"))
+        ig_state["username"] = me.get("username")
+        ig_state["error"] = None
+
+
+def ig_clean(text: str) -> str:
+    """Instagram oddiy matnni ko'rsatadi — markdown belgilarini olib tashlaymiz."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text, flags=re.S)
+    text = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"\1", text)
+    text = re.sub(r"^\s*#{1,6}\s*", "", text, flags=re.M)
+    return re.sub(r"<[^>]+>", "", text).strip()
+
+
+def ig_send_dm(recipient: dict, text: str) -> bool:
+    ok = True
+    for chunk in split_text(ig_clean(text), 950):  # Instagram xabar limiti ~1000 belgi
+        ok = ig_request("POST", "me/messages", json={"recipient": recipient, "message": {"text": chunk}}) and ok
+        recipient = {"id": recipient["id"]} if "id" in recipient else recipient
+    return bool(ok)
+
+
+def ig_handle_dm(event: dict):
+    sender = str((event.get("sender") or {}).get("id", ""))
+    message = event.get("message") or {}
+    if not sender or message.get("is_echo") or sender == ig_state["user_id"] or is_duplicate(message.get("mid")):
+        return
+    text = (message.get("text") or "").strip()
+    if not text:
+        ig_send_dm({"id": sender}, "Hozircha faqat matnli xabarlarni tushunaman 🙂 Savolingizni yozib yuboring.")
+        return
+    key = f"ig:{sender}"
+    if rate_limited(key):
+        return
+    ig_state["dm"] += 1
+    ig_state["last"] = time.time()
+    db.log_event(0, "ig_dm")
+    with chat_lock(key):
+        answer, noinfo = ask_gemini(key, [{"text": text[:MAX_INPUT_CHARS]}], channel_note=IG_DM_NOTE)
+    ig_send_dm({"id": sender}, answer)
+    if noinfo:
+        db.add_gap(0, f"[Instagram] {text[:480]}")
+    if ADMIN_CHAT_ID and re.search(r"(\+?998)?[\s-]?\(?\d{2}\)?[\s-]?\d{3}[\s-]?\d{2}[\s-]?\d{2}", text):
+        send(ADMIN_CHAT_ID, f"📸 <b>Instagram Direct'da telefon raqam qoldirildi</b>\n\n<i>{html.escape(text[:500])}</i>")
+
+
+def ig_handle_comment(value: dict):
+    comment_id = value.get("id")
+    author = value.get("from") or {}
+    text = (value.get("text") or "").strip()
+    if (not comment_id or not text or str(author.get("id")) == ig_state["user_id"]
+            or (ig_state["username"] and author.get("username") == ig_state["username"])
+            or is_duplicate(f"igc:{comment_id}")):
+        return
+    ig_state["comments"] += 1
+    ig_state["last"] = time.time()
+    db.log_event(0, "ig_comment")
+    key = f"igc:{author.get('id') or comment_id}"
+    if IG_COMMENT_REPLIES:
+        public, _ = ask_gemini(f"{key}:public", [{"text": text[:MAX_INPUT_CHARS]}], channel_note=IG_COMMENT_NOTE)
+        public = ig_clean(public)
+        if public and "SKIP" not in public and public != ERROR_TEXT:
+            ig_request("POST", f"{comment_id}/replies", params={"message": public[:300]})
+        elif "SKIP" in public:
+            return  # spam/haqorat — Direct ham yubormaymiz
+    if IG_PRIVATE_REPLIES:
+        detailed, noinfo = ask_gemini(key, [{"text": f"(Instagram post ostidagi kommentim) {text[:MAX_INPUT_CHARS]}"}],
+                                      channel_note=IG_DM_NOTE)
+        if detailed != ERROR_TEXT:
+            # "Private reply": kommentga javoban Direct (har bir kommentga bir marta, 7 kun ichida)
+            ig_request("POST", "me/messages", json={"recipient": {"comment_id": comment_id},
+                                                    "message": {"text": ig_clean(detailed)[:950]}})
+        if noinfo:
+            db.add_gap(0, f"[Instagram komment] {text[:470]}")
+
+
+def ig_process(payload: dict):
+    try:
+        if not ig_state["user_id"]:
+            ig_init()
+        for entry in payload.get("entry", []):
+            for event in entry.get("messaging", []):
+                if "message" in event:
+                    ig_handle_dm(event)
+            for change in entry.get("changes", []):
+                if change.get("field") in ("comments", "live_comments") and IG_COMMENT_REPLIES | IG_PRIVATE_REPLIES:
+                    ig_handle_comment(change.get("value") or {})
+    except Exception:
+        log.exception("Instagram hodisasini qayta ishlashda xato")
+
+
+@app.get("/instagram/webhook")
+def instagram_verify():
+    """Meta webhook'ni tasdiqlash (Callback URL sozlanganda bir marta chaqiriladi)."""
+    if (request.args.get("hub.mode") == "subscribe"
+            and request.args.get("hub.verify_token") == IG_VERIFY_TOKEN):
+        return request.args.get("hub.challenge", "")
+    abort(403)
+
+
+@app.post("/instagram/webhook")
+def instagram_webhook():
+    raw = request.get_data()
+    if IG_APP_SECRET:
+        import hashlib
+        import hmac
+        expected = "sha256=" + hmac.new(IG_APP_SECRET.encode(), raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, request.headers.get("X-Hub-Signature-256", "")):
+            abort(403)
+    try:
+        payload = request.get_json(force=True, silent=True) or {}
+        if IG_ACCESS_TOKEN:
+            executor.submit(ig_process, payload)
+    except Exception:
+        log.exception("Instagram webhook xatosi")
+    return "ok"
+
+
 @app.post(f"/webhook/{TELEGRAM_TOKEN}")
 def webhook():
     if WEBHOOK_SECRET and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != WEBHOOK_SECRET:
@@ -1323,6 +1496,10 @@ def status():
         f"Kutayotgan xabarlar: {info.get('pending_update_count', '?')}",
         "Telegram'dagi oxirgi xato: " + (info.get("last_error_message") or "yo'q"),
         f"Admin chat: {ADMIN_CHAT_ID} ({'guruh' if ADMIN_CHAT_ID < 0 else 'shaxsiy chat'})",
+        "Instagram: " + (("✅ @" + str(ig_state["username"]) if ig_state["username"] else "❌ token ishlamayapti")
+                         + f" | Direct: {ig_state['dm']}, komment: {ig_state['comments']}"
+                         + (f" | oxirgi xato: {ig_state['error']}" if ig_state["error"] else "")
+                         if IG_ACCESS_TOKEN else "o'chiq (IG_ACCESS_TOKEN berilmagan)"),
         f"Yo'nalishlar (faq.txt): {len(PROGRAMS)}",
         f"Baza: {db.DB_PATH}",
         f"Gemini: {gemini_check()}",
@@ -1338,6 +1515,8 @@ def status():
 
 def startup():
     resolve_admin_chat()
+    if IG_ACCESS_TOKEN:
+        ig_init()
     try:
         restore_backup()
     except Exception:
