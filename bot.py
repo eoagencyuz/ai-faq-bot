@@ -57,7 +57,8 @@ ADMIN_CONTACT = os.environ.get("ADMIN_CONTACT", "+998 55 500 99 44")
 # Ixtiyoriy: webhook so'rovlarini tekshirish uchun maxfiy kalit (A-Z, a-z, 0-9, _ -)
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 # Admin guruh ID (masalan -1001234567890): arizalar, operator chat va admin buyruqlari shu yerda
-_admin = os.environ.get("ADMIN_CHAT_ID", "").strip()
+# Standart admin: qabul bo'limi xodimining Telegram ID'si. Render'da ADMIN_CHAT_ID berilsa, o'sha ishlatiladi.
+_admin = os.environ.get("ADMIN_CHAT_ID", "1144976151").strip()
 ADMIN_CHAT_ID = int(_admin) if re.fullmatch(r"-?\d+", _admin) else None
 if _admin and ADMIN_CHAT_ID is None:
     log.error("ADMIN_CHAT_ID noto'g'ri: %r (raqam bo'lishi kerak, masalan -1001234567890)", _admin)
