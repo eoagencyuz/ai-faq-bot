@@ -122,6 +122,10 @@ def save_relay(admin_msg_id: int, user_id: int):
     _exec("INSERT OR REPLACE INTO relay (admin_msg_id, user_id) VALUES (?, ?)", (admin_msg_id, user_id))
 
 
+def clear_relay():
+    _exec("DELETE FROM relay")
+
+
 def relay_user(admin_msg_id: int) -> int | None:
     rows = _query("SELECT user_id FROM relay WHERE admin_msg_id=?", (admin_msg_id,))
     return rows[0]["user_id"] if rows else None

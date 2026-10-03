@@ -57,11 +57,16 @@ ADMIN_CONTACT = os.environ.get("ADMIN_CONTACT", "+998 55 500 99 44")
 # Ixtiyoriy: webhook so'rovlarini tekshirish uchun maxfiy kalit (A-Z, a-z, 0-9, _ -)
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
 # Admin guruh ID (masalan -1001234567890): arizalar, operator chat va admin buyruqlari shu yerda
-# Standart admin: qabul bo'limi xodimining Telegram ID'si. Render'da ADMIN_CHAT_ID berilsa, o'sha ishlatiladi.
-_admin = os.environ.get("ADMIN_CHAT_ID", "1144976151").strip()
-ADMIN_CHAT_ID = int(_admin) if re.fullmatch(r"-?\d+", _admin) else None
-if _admin and ADMIN_CHAT_ID is None:
+# Admin chat: arizalar, ro'yxatdan o'tganlar va operator chat shu yerga boradi.
+# Render'da ADMIN_CHAT_ID berilsa — faqat o'sha. Aks holda: bot guruhda bo'lsa guruh, bo'lmasa xodimning shaxsiy chati.
+ADMIN_GROUP_ID = -1004487048211
+ADMIN_PERSONAL_ID = 1144976151
+_admin = os.environ.get("ADMIN_CHAT_ID", "").strip()
+if _admin and not re.fullmatch(r"-?\d+", _admin):
     log.error("ADMIN_CHAT_ID noto'g'ri: %r (raqam bo'lishi kerak, masalan -1001234567890)", _admin)
+ADMIN_FIXED = bool(re.fullmatch(r"-?\d+", _admin))
+ADMIN_CHAT_ID = int(_admin) if ADMIN_FIXED else ADMIN_PERSONAL_ID
+ADMIN_CHATS = {ADMIN_CHAT_ID} if ADMIN_FIXED else {ADMIN_GROUP_ID, ADMIN_PERSONAL_ID}
 NOTIFY_NEW_USERS = os.environ.get("NOTIFY_NEW_USERS") == "1"
 ADMISSION_URL = "https://qabul.kiu.uz"
 SITE_URL = "https://kiu.uz"
@@ -317,6 +322,8 @@ def send(chat_id: int, text: str, markup: dict | None = None, formatted: bool = 
             payload.pop("parse_mode")
             payload["text"] = html.unescape(re.sub(r"<[^>]+>", "", chunk))
             result = tg("sendMessage", **payload)
+        if result is None and chat_id == ADMIN_GROUP_ID and admin_fallback():
+            return send(ADMIN_CHAT_ID, text, markup, formatted, None)
     return result
 
 
@@ -649,6 +656,8 @@ def relay_to_admin(chat_id: int, msg: dict):
     if st:
         st["ts"] = time.time()
     fwd = tg("forwardMessage", chat_id=ADMIN_CHAT_ID, from_chat_id=chat_id, message_id=msg["message_id"])
+    if not fwd and admin_fallback():
+        fwd = tg("forwardMessage", chat_id=ADMIN_CHAT_ID, from_chat_id=chat_id, message_id=msg["message_id"])
     if fwd:
         db.save_relay(fwd["message_id"], chat_id)
         tg("setMessageReaction", chat_id=chat_id, message_id=msg["message_id"],
@@ -845,6 +854,7 @@ def handle_callback(cb: dict):
 
 # ======================= Admin =======================
 def handle_admin(msg: dict):
+    here = msg["chat"]["id"]  # buyruq qaysi admin chatdan kelgan bo'lsa, javob o'sha yerga
     text = (msg.get("text") or "").strip()
     command = text.split()[0].split("@")[0].lower() if text.startswith("/") else ""
     reply = msg.get("reply_to_message")
@@ -852,7 +862,7 @@ def handle_admin(msg: dict):
     if command == "/stats":
         s = db.stats()
         kinds = ", ".join(f"{k}: {v}" for k, v in sorted(s["by_kind"].items())) or "—"
-        send(ADMIN_CHAT_ID,
+        send(here,
              "📊 <b>Statistika</b>\n\n"
              f"👥 Foydalanuvchilar: <b>{s['users']}</b> (botni bloklagan: {s['blocked']})\n"
              f"🪪 Ro'yxatdan o'tgan: <b>{s['registered']}</b> (24 soatda {s['reg_day']})\n"
@@ -864,60 +874,60 @@ def handle_admin(msg: dict):
     elif command == "/leads":
         rows = db.recent_leads(10)
         if not rows:
-            send(ADMIN_CHAT_ID, "Hozircha arizalar yo'q.", reply_to=msg["message_id"])
+            send(here, "Hozircha arizalar yo'q.", reply_to=msg["message_id"])
             return
         lines = [f"#{r['id']} · {time.strftime('%d.%m %H:%M', time.gmtime(r['created_at'] + 5 * 3600))} · "
                  f"<b>{html.escape(r['name'])}</b> · {html.escape(r['phone'])} · {html.escape(r['program'])}"
                  for r in rows]
-        send(ADMIN_CHAT_ID, "📝 <b>Oxirgi arizalar</b>\n\n" + "\n".join(lines), reply_to=msg["message_id"])
+        send(here, "📝 <b>Oxirgi arizalar</b>\n\n" + "\n".join(lines), reply_to=msg["message_id"])
     elif command == "/broadcast":
         body = text[len(text.split()[0]):].strip()
         if not reply and not body:
-            send(ADMIN_CHAT_ID, "Foydalanish: <code>/broadcast matn</code> yoki biror xabarga reply qilib "
+            send(here, "Foydalanish: <code>/broadcast matn</code> yoki biror xabarga reply qilib "
                                 "<code>/broadcast</code> yozing.", reply_to=msg["message_id"])
             return
-        executor.submit(broadcast, reply["message_id"] if reply else None, body)
-        send(ADMIN_CHAT_ID, "📣 Yuborish boshlandi...", reply_to=msg["message_id"])
+        executor.submit(broadcast, reply["message_id"] if reply else None, body, here)
+        send(here, "📣 Yuborish boshlandi...", reply_to=msg["message_id"])
     elif command == "/export":
-        export_csv(ADMIN_CHAT_ID)
+        export_csv(here)
     elif command == "/addinfo":
         body = text[len(text.split()[0]):].strip()
         if not body and reply:
             body = (reply.get("text") or reply.get("caption") or "").strip()
         if len(body) < 5:
-            send(ADMIN_CHAT_ID, "Foydalanish: <code>/addinfo Yotoqxona bor, oyiga 500 000 so'm.</code>\n"
+            send(here, "Foydalanish: <code>/addinfo Yotoqxona bor, oyiga 500 000 so'm.</code>\n"
                                 "Yoki matnli xabarga reply qilib <code>/addinfo</code> yozing.",
                  reply_to=msg["message_id"])
             return
         kid = db.add_knowledge(body[:3000], (msg.get("from") or {}).get("first_name", ""))
-        send(ADMIN_CHAT_ID, f"✅ Bazaga qo'shildi (#{kid}). Bot endi shu ma'lumot asosida javob beradi.",
+        send(here, f"✅ Bazaga qo'shildi (#{kid}). Bot endi shu ma'lumot asosida javob beradi.",
              reply_to=msg["message_id"])
     elif command == "/info":
         rows = db.list_knowledge()
         if not rows:
-            send(ADMIN_CHAT_ID, "Qo'shimcha ma'lumotlar yo'q. <code>/addinfo matn</code> bilan qo'shing.",
+            send(here, "Qo'shimcha ma'lumotlar yo'q. <code>/addinfo matn</code> bilan qo'shing.",
                  reply_to=msg["message_id"])
             return
         lines = [f"<b>#{r['id']}</b> {html.escape(r['text'])}" for r in rows]
-        send(ADMIN_CHAT_ID, "📚 <b>Qo'shimcha ma'lumotlar</b> (o'chirish: <code>/delinfo raqam</code>)\n\n"
+        send(here, "📚 <b>Qo'shimcha ma'lumotlar</b> (o'chirish: <code>/delinfo raqam</code>)\n\n"
              + "\n\n".join(lines), reply_to=msg["message_id"])
     elif command == "/delinfo":
         arg = text[len(text.split()[0]):].strip().lstrip("#")
         ok = arg.isdigit() and db.delete_knowledge(int(arg))
-        send(ADMIN_CHAT_ID, f"🗑 #{arg} o'chirildi." if ok else "Topilmadi. Raqamni /info dan oling.",
+        send(here, f"🗑 #{arg} o'chirildi." if ok else "Topilmadi. Raqamni /info dan oling.",
              reply_to=msg["message_id"])
     elif command == "/gaps":
         rows = db.recent_gaps(20)
         if not rows:
-            send(ADMIN_CHAT_ID, "Hozircha javobsiz qolgan savollar yo'q 👍", reply_to=msg["message_id"])
+            send(here, "Hozircha javobsiz qolgan savollar yo'q 👍", reply_to=msg["message_id"])
             return
         lines = [f"• {html.escape(r['question'][:200])}" + (f" <i>(×{r['n']})</i>" if r["n"] > 1 else "")
                  for r in rows]
-        send(ADMIN_CHAT_ID, "❓ <b>Bot aniq javob bera olmagan savollar</b> (oxirgi 30 kun)\n\n"
+        send(here, "❓ <b>Bot aniq javob bera olmagan savollar</b> (oxirgi 30 kun)\n\n"
              + "\n".join(lines) + "\n\nJavoblarni <code>/addinfo</code> bilan bazaga qo'shing.",
              reply_to=msg["message_id"])
     elif command == "/help":
-        send(ADMIN_CHAT_ID, "🛠 <b>Admin buyruqlari</b>\n\n"
+        send(here, "🛠 <b>Admin buyruqlari</b>\n\n"
                             "/stats — statistika\n/leads — oxirgi 10 ta ariza\n"
                             "/export — arizalar va ro'yxatdan o'tganlar (Excel/CSV)\n"
                             "/broadcast matn — barcha foydalanuvchilarga xabar\n\n"
@@ -928,27 +938,30 @@ def handle_admin(msg: dict):
                             "/gaps — bot javob topa olmagan savollar\n\n"
                             "Foydalanuvchiga javob berish: uning xabariga yoki ariza kartasiga reply qiling.")
     elif reply and not command:
+        if here != ADMIN_CHAT_ID:
+            return  # reply bog'lanishlari faqat faol admin chatda saqlanadi
         user_id = db.relay_user(reply["message_id"])
         if not user_id:
             return
         ok = tg("copyMessage", chat_id=user_id, from_chat_id=ADMIN_CHAT_ID, message_id=msg["message_id"])
         if ok:
-            tg("setMessageReaction", chat_id=ADMIN_CHAT_ID, message_id=msg["message_id"],
+            tg("setMessageReaction", chat_id=here, message_id=msg["message_id"],
                reaction=[{"type": "emoji", "emoji": "👍"}])
         else:
             if last_error() == 403:
                 db.set_blocked(user_id)
-            send(ADMIN_CHAT_ID, "⚠️ Yetkazib bo'lmadi — foydalanuvchi botni bloklagan bo'lishi mumkin.",
+            send(here, "⚠️ Yetkazib bo'lmadi — foydalanuvchi botni bloklagan bo'lishi mumkin.",
                  reply_to=msg["message_id"])
 
 
-def broadcast(source_msg_id: int | None, body: str):
+def broadcast(source_msg_id: int | None, body: str, admin_chat: int | None = None):
+    admin_chat = admin_chat or ADMIN_CHAT_ID
     ok = failed = 0
     for uid in db.active_user_ids():
-        if uid == ADMIN_CHAT_ID:
+        if uid in ADMIN_CHATS:
             continue
         if source_msg_id:
-            res = tg("copyMessage", chat_id=uid, from_chat_id=ADMIN_CHAT_ID, message_id=source_msg_id)
+            res = tg("copyMessage", chat_id=uid, from_chat_id=admin_chat, message_id=source_msg_id)
         else:
             res = send(uid, body, formatted=False)
         if res:
@@ -958,7 +971,30 @@ def broadcast(source_msg_id: int | None, body: str):
             if last_error() == 403:
                 db.set_blocked(uid)
         time.sleep(0.05)  # Telegram limiti: ~30 xabar/soniya
-    send(ADMIN_CHAT_ID, f"📣 Yuborish tugadi: ✅ {ok}, ❌ {failed}")
+    send(admin_chat, f"📣 Yuborish tugadi: ✅ {ok}, ❌ {failed}")
+
+
+def set_admin_chat(chat_id: int, reason: str):
+    global ADMIN_CHAT_ID
+    if ADMIN_FIXED or ADMIN_CHAT_ID == chat_id:
+        return
+    ADMIN_CHAT_ID = chat_id
+    db.clear_relay()  # turli chatlardagi xabar raqamlari aralashib ketmasin
+    log.warning("Admin chat almashdi: %s (%s)", chat_id, reason)
+
+
+def admin_fallback() -> bool:
+    """Guruhga yuborib bo'lmasa (bot guruhda emas), shaxsiy chatga o'tamiz. O'tgan bo'lsa True."""
+    if not ADMIN_FIXED and ADMIN_CHAT_ID == ADMIN_GROUP_ID and last_error() in (400, 403):
+        set_admin_chat(ADMIN_PERSONAL_ID, "guruhga yuborib bo'lmadi")
+        return True
+    return False
+
+
+def resolve_admin_chat():
+    """Ishga tushganda: bot admin guruhda bo'lsa — guruhni ishlatamiz."""
+    if not ADMIN_FIXED and tg("getChat", chat_id=ADMIN_GROUP_ID):
+        set_admin_chat(ADMIN_GROUP_ID, "bot guruhda")
 
 
 def group_setup_hint(msg: dict):
@@ -1023,8 +1059,12 @@ def process_update(update: dict):
             note_update(update, "e'tiborsiz: message yo'q")
             return
         chat = msg.get("chat", {})
-        if ADMIN_CHAT_ID and chat.get("id") == ADMIN_CHAT_ID:
-            note_update(update, "admin guruh")
+        if chat.get("id") in ADMIN_CHATS:
+            if chat["id"] == ADMIN_GROUP_ID and ADMIN_CHAT_ID != ADMIN_GROUP_ID and not ADMIN_FIXED:
+                set_admin_chat(ADMIN_GROUP_ID, "guruhdan xabar keldi")
+                send(ADMIN_GROUP_ID, "✅ Bu guruh <b>admin guruh</b> sifatida ulandi. Arizalar, ro'yxatdan "
+                                     "o'tganlar va operator chat endi shu yerga keladi. Buyruqlar: /help")
+            note_update(update, "admin chat")
             handle_admin(msg)
         elif chat.get("type") == "private":
             note_update(update, "shaxsiy chat")
@@ -1037,7 +1077,7 @@ def process_update(update: dict):
         log.exception("Update'ni qayta ishlashda xato: %s", str(update)[:500])
         chat_id = ((update.get("message") or (update.get("callback_query") or {}).get("message") or {})
                    .get("chat", {}).get("id"))
-        if chat_id and chat_id != ADMIN_CHAT_ID:
+        if chat_id and chat_id not in ADMIN_CHATS:
             try:
                 clear_state(chat_id)
                 send(chat_id, ERROR_TEXT, MAIN_KEYBOARD)
@@ -1082,8 +1122,8 @@ def register_webhook(base: str) -> dict | None:
         {"command": "contact", "description": "Aloqa va manzil"},
         {"command": "help", "description": "Yordam"},
     ])
-    if ADMIN_CHAT_ID:
-        tg("setMyCommands", scope={"type": "chat", "chat_id": ADMIN_CHAT_ID}, commands=[
+    for admin_chat in ADMIN_CHATS:
+        tg("setMyCommands", scope={"type": "chat", "chat_id": admin_chat}, commands=[
             {"command": "stats", "description": "Statistika"},
             {"command": "leads", "description": "Oxirgi arizalar"},
             {"command": "export", "description": "Arizalar va ro'yxat (Excel)"},
@@ -1143,7 +1183,7 @@ def status():
         f"Webhook: {hook_ok}",
         f"Kutayotgan xabarlar: {info.get('pending_update_count', '?')}",
         "Telegram'dagi oxirgi xato: " + (info.get("last_error_message") or "yo'q"),
-        f"Admin guruh: {ADMIN_CHAT_ID or 'sozlanmagan'}",
+        f"Admin chat: {ADMIN_CHAT_ID} ({'guruh' if ADMIN_CHAT_ID < 0 else 'shaxsiy chat'})",
         f"Yo'nalishlar (faq.txt): {len(PROGRAMS)}",
         f"Baza: {db.DB_PATH}",
         f"Gemini: {gemini_check()}",
@@ -1156,6 +1196,8 @@ def status():
     ]
     return "<pre>" + html.escape("\n".join(lines)) + "</pre>"
 
+
+threading.Thread(target=resolve_admin_chat, daemon=True).start()
 
 # Render'da deploydan so'ng webhook avtomatik o'rnatiladi
 if os.environ.get("RENDER_EXTERNAL_URL"):
