@@ -354,6 +354,13 @@ export function createBot(deps: BotDeps): Telegraf {
     }),
   );
 
+  // ---- Matn, kontakt va tugmadan boshqa xabar turlari (rasm, stiker, ovoz va h.k.) ----
+  bot.on('message', (ctx) =>
+    safe(ctx, 'unsupported', async () => {
+      await say(ctx, TEXT.textOnly);
+    }),
+  );
+
   // ---- Inline tugmalar ----
   bot.action('sub:check', async (ctx) => {
     await ack(ctx);

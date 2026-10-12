@@ -314,6 +314,14 @@ describe('ro\'yxatdan o\'tish', () => {
   });
 });
 
+describe('qo\'llab-quvvatlanmaydigan xabarlar', () => {
+  it('rasm yuborilsa, matnli xabar so\'raladi', async () => {
+    const h = harness();
+    await h.handle({ message: { message_id: 1, date: 0, chat: chat(USER), from: { id: USER, is_bot: false, first_name: 'Ali' }, photo: [{ file_id: 'x', file_unique_id: 'y', width: 1, height: 1 }] } });
+    expect(h.lastMessage()!.payload.text).toContain('matnli');
+  });
+});
+
 describe('admin buyruqlari', () => {
   it('oddiy foydalanuvchi /admin va /stats ni ishlata olmaydi', async () => {
     const h = harness();

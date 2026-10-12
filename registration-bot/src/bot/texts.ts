@@ -49,6 +49,7 @@ export const TEXT = {
   editMenu: "Qaysi ma'lumotni o'zgartirmoqchisiz?",
   useButtons: 'Iltimos, tugmalardan birini tanlang.',
   unknownCommand: "Noma'lum buyruq. /start bosing.",
+  textOnly: "Hozircha faqat matnli xabarlarni qabul qilaman. Tugmalardan foydalaning yoki /start bosing.",
   tooLong: 'Xabar juda uzun. Iltimos, qisqaroq yozing.',
   rateLimited: "Biroz sekinroq 🙂 Bir necha soniyadan so'ng yozing.",
   contactNotExpected: "Telefon raqamini hozir so'ramayapmiz. Ro'yxatdan o'tishni /start bilan boshlang.",
