@@ -41,6 +41,8 @@ export interface Config {
   sessionFile: string;
   fields: FieldKey[];
   regions: Regions;
+  /** Ixtiyoriy: Render kabi hostinglar HTTP port talab qilsa, health-server shu portda ishlaydi. */
+  port: number | undefined;
 }
 
 export interface RegistrationRecord {

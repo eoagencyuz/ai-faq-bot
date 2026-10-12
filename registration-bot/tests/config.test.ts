@@ -47,6 +47,14 @@ describe('parseConfig', () => {
   });
 });
 
+describe('PORT', () => {
+  it("berilmasa undefined, berilsa raqam bo'ladi", () => {
+    expect(parseConfig(baseEnv()).port).toBeUndefined();
+    expect(parseConfig(baseEnv({ PORT: '10000' })).port).toBe(10000);
+    expect(() => parseConfig(baseEnv({ PORT: 'abc' }))).toThrow(ConfigError);
+  });
+});
+
 describe('parseFields', () => {
   it('kanonik tartibda qaytaradi va majburiy maydonlarni qo\'shadi', () => {
     expect(parseFields('phone,last_name').fields).toEqual(['first_name', 'last_name', 'phone']);

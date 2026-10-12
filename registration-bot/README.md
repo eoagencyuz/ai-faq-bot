@@ -151,6 +151,22 @@ journalctl -u kiu-registration-bot -f
 
 `Restart=always` yoki PM2 vaqtinchalik xatodan keyin botni qaytaradi. Konfiguratsiya xatosi bo'lsa, bot har bir urinishda to'xtaydi va loglarda sababini yozadi. `.env` ni tuzatgach, servis o'zi ishga tushadi (yoki `restart` qiling).
 
+### Variant D: Render (bepul tarif)
+
+Render'ning web servisi HTTP portni tinglashi kerak, shuning uchun `PORT` o'zgaruvchisini yoqing. Render uni o'zi beradi. Bot shu portda oddiy `ok` javobini qaytaradi va har 10 daqiqada o'z manziliga murojaat qiladi, shunda servis uxlab qolmaydi.
+
+1. **New → Web Service** → shu GitHub repozitoriyasini tanlang, branch: `main`.
+2. **Root Directory:** `registration-bot`
+3. **Build Command:** `npm ci && npm run build`
+4. **Start Command:** `npm start`
+5. **Environment:** `.env.example` dagi qiymatlar, shuningdek `NODE_VERSION=22`.
+6. Deploydan keyin Logs'da `Bot ishga tushdi (polling)` yozuvi chiqishi kerak.
+
+Cheklovlar:
+- Bepul tarifda disk vaqtinchalik. Har deployda `data/sessions.json` o'chadi va tugallanmagan jarayonlar yo'qoladi. Yakunlangan ro'yxatdan o'tishlar Google Sheets'da saqlanadi.
+- Bepul tarifda oylik soat limiti bor. Bir nechta doimiy servis ishlatilsa, u oy oxirigacha yetmasligi mumkin. Doimiy ishlashi muhim bo'lsa, VPS yoki pullik tarifni tanlang.
+- Mavjud Python bot ham Render'da ishlayotgan bo'lsa, bu **alohida servis** bo'lishi va **boshqa bot tokeni** ishlatishi kerak.
+
 ### Variant C: Docker
 
 ```bash

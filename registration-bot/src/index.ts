@@ -7,6 +7,7 @@ import { GoogleSheetsAdapter } from './services/google-sheets.js';
 import { RegistrationRegistry } from './services/registry.js';
 import { SessionStore } from './services/session.js';
 import type { MemberFetcher } from './services/subscription.js';
+import { startHealthServer, startKeepAlive } from './utils/health.js';
 import { acquireInstanceLock } from './utils/instance-lock.js';
 import { createLogger, describeError, registerSecrets } from './utils/logger.js';
 
@@ -95,9 +96,15 @@ async function main(): Promise<void> {
     process.exit(1);
   });
 
+  const healthServer = config.port ? startHealthServer(config.port, logger) : undefined;
+  const publicUrl = process.env.RENDER_EXTERNAL_URL;
+  const keepAlive = healthServer && publicUrl ? startKeepAlive(publicUrl, 10 * 60_000, logger) : undefined;
+
   const shutdown = (signal: string) => {
     logger.info({ signal }, "To'xtatilmoqda");
     clearInterval(purge);
+    if (keepAlive) clearInterval(keepAlive);
+    healthServer?.close();
     bot.stop(signal);
     release();
     process.exit(0);

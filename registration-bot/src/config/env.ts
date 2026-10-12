@@ -33,6 +33,7 @@ const schema = z.object({
   SESSION_FILE: z.string().min(1).default('./data/sessions.json'),
   REGISTRATION_FIELDS: z.string().default(FIELD_KEYS.join(',')),
   REGIONS_JSON: z.string().optional(),
+  PORT: z.coerce.number().int().min(1).max(65535).optional(),
 });
 
 export function parseFields(raw: string): { fields: FieldKey[]; unknown: string[] } {
@@ -105,5 +106,6 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     sessionFile: e.SESSION_FILE,
     fields,
     regions: regionsResult.regions,
+    port: e.PORT,
   };
 }
