@@ -1,6 +1,7 @@
 import { google, type sheets_v4 } from 'googleapis';
 import type { Logger } from '../utils/logger.js';
 import { LAST_COLUMN, SHEET_HEADERS, type SheetsPort } from './registry.js';
+import { SESSION_HEADERS, type SessionSheetPort } from './session-backup.js';
 
 export interface SheetsOptions {
   spreadsheetId: string;
@@ -101,6 +102,83 @@ export class GoogleSheetsAdapter implements SheetsPort {
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [values] },
+    });
+  }
+}
+
+/** Sessiyalar zaxirasi uchun alohida varaq: `<GOOGLE_SHEET_NAME>_sessions`, ustunlar A–C. */
+export class GoogleSessionSheet implements SessionSheetPort {
+  private readonly api: sheets_v4.Sheets;
+  private readonly quoted: string;
+  readonly sheetName: string;
+
+  constructor(private readonly opts: SheetsOptions) {
+    const auth = new google.auth.JWT({
+      email: opts.email,
+      key: opts.privateKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    this.api = google.sheets({ version: 'v4', auth });
+    this.sheetName = `${opts.sheetName}_sessions`;
+    this.quoted = `'${this.sheetName.replace(/'/g, "''")}'`;
+  }
+
+  async verify(): Promise<void> {
+    const { spreadsheetId, logger } = this.opts;
+    await withRetry(async () => {
+      const meta = await this.api.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
+      const titles = (meta.data.sheets ?? []).map((s) => s.properties?.title);
+      if (!titles.includes(this.sheetName)) {
+        await this.api.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: { requests: [{ addSheet: { properties: { title: this.sheetName } } }] },
+        });
+        logger.info({ sheetName: this.sheetName }, 'Sessiyalar zaxirasi varag\'i yaratildi');
+      }
+      const head = await this.api.spreadsheets.values.get({ spreadsheetId, range: `${this.quoted}!A1:C1` });
+      const row = (head.data.values?.[0] ?? []) as string[];
+      if (row.length === 0) {
+        await this.api.spreadsheets.values.update({
+          spreadsheetId,
+          range: `${this.quoted}!A1:C1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [[...SESSION_HEADERS]] },
+        });
+        return;
+      }
+      if (SESSION_HEADERS.some((h, i) => row[i] !== h)) {
+        throw new SheetsSetupError(`"${this.sheetName}" varag'ining sarlavhalari mos emas`);
+      }
+    });
+  }
+
+  readAll(): Promise<Array<{ row: number; values: string[] }>> {
+    return withRetry(async () => {
+      const res = await this.api.spreadsheets.values.get({
+        spreadsheetId: this.opts.spreadsheetId,
+        range: `${this.quoted}!A2:C`,
+      });
+      return (res.data.values ?? []).map((r, i) => ({ row: i + 2, values: r.map(String) }));
+    });
+  }
+
+  async writeRows(updates: Array<{ row: number; values: string[] }>): Promise<void> {
+    await this.api.spreadsheets.values.batchUpdate({
+      spreadsheetId: this.opts.spreadsheetId,
+      requestBody: {
+        valueInputOption: 'RAW',
+        data: updates.map((u) => ({ range: `${this.quoted}!A${u.row}:C${u.row}`, values: [u.values] })),
+      },
+    });
+  }
+
+  async appendRows(rows: string[][]): Promise<void> {
+    await this.api.spreadsheets.values.append({
+      spreadsheetId: this.opts.spreadsheetId,
+      range: `${this.quoted}!A:C`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: rows },
     });
   }
 }

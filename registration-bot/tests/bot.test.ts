@@ -569,6 +569,17 @@ describe('bir martalik javob va eski tugmalar', () => {
 });
 
 describe('sessiya tiklanishi', () => {
+  it("sessiya yo'qolgan bo'lsa (disk tozalangan), tugma /start ga yo'naltiradi", async () => {
+    const h = harness();
+    await startQuestionnaire(h);
+    await answerContactPart(h);
+    fs.rmSync(path.join(h.dir, 'sessions.json'));
+    const restarted = harness({ dir: h.dir, rows: h.rows });
+    await restarted.handle(press('a:3:0'));
+    expect(lastText(restarted)).toContain('Anketangiz holati topilmadi');
+    expect(lastText(restarted)).toContain('/start');
+  });
+
   it('server qayta ishga tushgandan keyin anketa shu savoldan davom etadi', async () => {
     const h = harness();
     await startQuestionnaire(h);

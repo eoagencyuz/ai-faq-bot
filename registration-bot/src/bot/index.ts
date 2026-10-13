@@ -537,11 +537,20 @@ export function createBot(deps: BotDeps): Telegraf {
     return { session, q };
   };
 
+  /** Anketa tugmasi bosildi, lekin sessiya yo'q (masalan, server diski tozalangan) — /start ga yo'naltiramiz. */
+  const reportLostSession = async (ctx: Context, uid: number): Promise<boolean> => {
+    if (sessions.get(uid)) return false;
+    await ack(ctx);
+    await say(ctx, TEXT.sessionLost);
+    return true;
+  };
+
   // Variantni tanlash yoki belgilash
   bot.action(/^a:(\d{1,2}):(\d{1,2})$/, async (ctx) => {
     const index = Number(ctx.match[1]);
     const optionIndex = Number(ctx.match[2]);
     await userAction(ctx, 'select', async (uid) => {
+      if (await reportLostSession(ctx, uid)) return;
       const active = activeChoice(sessions.get(uid), index);
       const option = active ? optionsOf(active.q)[optionIndex] : undefined;
       if (!active || !option) {
@@ -560,6 +569,7 @@ export function createBot(deps: BotDeps): Telegraf {
   bot.action(/^n:(\d{1,2})$/, async (ctx) => {
     const index = Number(ctx.match[1]);
     await userAction(ctx, 'next', async (uid) => {
+      if (await reportLostSession(ctx, uid)) return;
       const active = activeChoice(sessions.get(uid), index);
       if (!active) {
         await ack(ctx, index < (sessions.get(uid)?.currentQuestionIndex ?? 0) ? TEXT.alreadyAnswered : TEXT.stale);
@@ -604,6 +614,7 @@ export function createBot(deps: BotDeps): Telegraf {
   bot.action(/^pc:(\d{1,2}):y$/, async (ctx) => {
     const index = Number(ctx.match[1]);
     await userAction(ctx, 'phone_confirm', async (uid) => {
+      if (await reportLostSession(ctx, uid)) return;
       const session = sessions.get(uid);
       const q = session ? currentQuestion(session) : null;
       const phone = session?.pending.contactPhone;

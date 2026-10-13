@@ -40,6 +40,8 @@ export const TEXT = {
     'Anketangizni tekshirishda muammo topildi va u yuborilmadi. Iltimos, administratorga murojaat qiling.',
   tempError: 'Kechirasiz, vaqtinchalik xato yuz berdi. Javobingiz qabul qilinmadi — iltimos, qayta yuboring.',
   stale: 'Bu tugma endi faol emas.',
+  sessionLost:
+    '⚠️ Anketangiz holati topilmadi (bot qayta ishga tushgan bo‘lishi mumkin). Davom etish uchun /start bosing.',
   alreadyAnswered: 'Bu savolga javob berib bo‘lingan.',
   resume: '▶️ Anketangiz shu savoldan davom etadi:',
   useButtons: 'Iltimos, javobni tugmalar orqali tanlang va “➡️ Keyingi” tugmasini bosing.',

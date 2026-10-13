@@ -203,7 +203,7 @@ Render web servisi HTTP portni tinglashi kerak. `PORT` ni Render o'zi beradi; bo
 5. **Environment:** `.env.example` dagi qiymatlar, `GOOGLE_SHEET_NAME=Media_AI`, `NODE_VERSION=22`.
 6. Logs'da `Bot ishga tushdi (polling)` chiqishi kerak.
 
-> Bepul tarifda disk vaqtinchalik: deploy paytida `data/sessions.json` o'chadi va **tugallanmagan** anketalar yo'qoladi. Yakunlangan anketalar Google Sheets'da qoladi va qayta topshirib bo'lmaydi. Tugallanmagan anketalarni saqlash muhim bo'lsa, persistent disk (`/app/data`) ulang yoki VPS ishlating.
+> Bepul tarifda disk vaqtinchalik: qayta deploy yoki sozlamalarni o'zgartirish `data/sessions.json` ni o'chiradi. Shuning uchun tugallanmagan anketalar Google Sheets'dagi **`Media_AI_sessions`** varag'ida ham saqlanadi (har 5 soniyada va to'xtashdan oldin) va bot ishga tushganda shu yerdan tiklanadi. Bu varaqni o'chirmang va tahrirlamang.
 
 ### VPS (PM2)
 
@@ -250,7 +250,7 @@ docker run -d --name kiu-media-ai --restart unless-stopped \
 - **Formula himoyasi.** Ma'lumot `RAW` rejimida yoziladi; `=`, `+`, `-`, `@` bilan boshlanuvchi matnlar oldiga `'` qo'yiladi.
 - **Sirlar.** Token va kalitlar kodda yo'q, faqat `.env`/hosting sozlamalarida. `.env` va JSON kalit fayllari Git'ga qo'shilmaydi. Loglarda sirlar `[REDACTED]` bilan almashtiriladi.
 - **Shaxsiy ma'lumot.** Telefon raqamlari logga yozilmaydi; foydalanuvchi ID'si xeshlanadi. Ma'lumotlar faqat anketani ko'rib chiqish va bog'lanish uchun ishlatiladi.
-- **Sessiya fayli.** `data/sessions.json` — atomik yoziladi (tmp + rename), huquqi `600`.
+- **Sessiya fayli.** `data/sessions.json` — atomik yoziladi (tmp + rename), huquqi `600`. Zaxira nusxasi `<GOOGLE_SHEET_NAME>_sessions` varag'ida (shaxsiy ma'lumot bor — jadvalni faqat kerakli odamlarga ulashing).
 - **HTML.** Foydalanuvchi matnlari xabarlarda escape qilinadi. Tugma ma'lumotlari va foydalanuvchi ID'si server tomonida tekshiriladi.
 - **Spam.** Foydalanuvchi 10 soniyada 30 tadan ortiq yangilanish yubora olmaydi. 4000 belgidan uzun xabar rad etiladi.
 
@@ -265,7 +265,7 @@ docker run -d --name kiu-media-ai --restart unless-stopped \
 ## 13. Cheklovlar
 
 - Dublikat tekshiruvi varaqni o'qiydi: bir necha ming yozuvgacha yaxshi ishlaydi.
-- Sessiyalar bitta faylda — bot bitta serverda ishlashi kerak.
+- Bot bitta serverda ishlashi kerak. Zaxira nusxasi bir necha soniya kechikadi: server to'satdan o'chsa, oxirgi javob qayta so'ralishi mumkin.
 - Telefon raqami faqat O'zbekiston formatida (`+998`) qabul qilinadi.
 - Avvalgi ro'yxatdan o'tish versiyasidagi tugallanmagan sessiyalar yangi anketaga o'tkazilmaydi.
 

@@ -90,7 +90,7 @@ interface FileShape {
   sessions: Record<string, UserSession>;
 }
 
-function isSession(value: unknown): value is UserSession {
+export function isSession(value: unknown): value is UserSession {
   const s = value as Partial<UserSession> | null;
   return (
     !!s &&
@@ -110,12 +110,18 @@ function isSession(value: unknown): value is UserSession {
   );
 }
 
+/** Saqlash jarayonida to'xtagan anketa qayta yakunlanishi mumkin bo'lsin (Sheets'ga yozish idempotent). */
+const normalizeLoaded = (s: UserSession): UserSession => (s.status === 'saving' ? { ...s, status: 'in_progress' } : s);
+
 /**
  * Foydalanuvchi holatlari. Har o'zgarishda diskka atomik yoziladi (tmp + rename),
  * shuning uchun server qayta ishga tushganda tugallanmagan anketalar shu savoldan davom etadi.
  */
 export class SessionStore {
   private readonly sessions = new Map<number, UserSession>();
+
+  /** Har o'zgarishda chaqiriladi (masalan, Google Sheets'dagi zaxira nusxa uchun). null — sessiya o'chirildi. */
+  onChange: (userId: number, session: UserSession | null) => void = () => undefined;
 
   constructor(
     private readonly file: string,
@@ -139,6 +145,7 @@ export class SessionStore {
     if (this.expired(session)) {
       this.sessions.delete(userId);
       this.persist();
+      this.onChange(userId, null);
       return undefined;
     }
     return structuredClone(session);
@@ -158,10 +165,30 @@ export class SessionStore {
       else this.sessions.delete(userId);
       throw err;
     }
+    this.onChange(userId, structuredClone(copy));
   }
 
   delete(userId: number): void {
-    if (this.sessions.delete(userId)) this.persist();
+    if (!this.sessions.delete(userId)) return;
+    this.persist();
+    this.onChange(userId, null);
+  }
+
+  /**
+   * Zaxira nusxadan tiklash: lokal faylda yo'q yoki eskiroq bo'lgan sessiyalar olinadi.
+   * Lokal nusxa yangiroq bo'lsa, u saqlanib qoladi. Tiklangan sessiyalar soni qaytariladi.
+   */
+  restore(list: UserSession[]): number {
+    let restored = 0;
+    for (const remote of list) {
+      if (!isSession(remote) || this.expired(remote)) continue;
+      const local = this.sessions.get(remote.telegramUserId);
+      if (local && local.updatedAt >= remote.updatedAt) continue;
+      this.sessions.set(remote.telegramUserId, normalizeLoaded(remote));
+      restored++;
+    }
+    if (restored > 0) this.persist();
+    return restored;
   }
 
   purgeExpired(): number {
@@ -169,6 +196,7 @@ export class SessionStore {
     for (const [userId, session] of this.sessions) {
       if (this.expired(session)) {
         this.sessions.delete(userId);
+        this.onChange(userId, null);
         removed++;
       }
     }
@@ -196,8 +224,7 @@ export class SessionStore {
       for (const [key, value] of Object.entries(raw.sessions ?? {})) {
         const userId = Number(key);
         if (Number.isSafeInteger(userId) && isSession(value) && value.telegramUserId === userId) {
-          // Saqlash jarayonida to'xtagan anketa qayta yakunlanishi mumkin bo'lsin (Sheets'ga yozish idempotent)
-          this.sessions.set(userId, value.status === 'saving' ? { ...value, status: 'in_progress' } : value);
+          this.sessions.set(userId, normalizeLoaded(value));
         }
       }
     } catch {
