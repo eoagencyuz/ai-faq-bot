@@ -33,7 +33,7 @@ interface Harness {
  * Telegraf har bir update uchun yangi Telegram nusxasi yaratadi, shuning uchun
  * Telegram API chaqiruvlarini prototipda ushlaymiz (haqiqiy tarmoqqa chiqilmaydi).
  */
-type Recorder = { sent: Sent[]; messageId: number };
+type Recorder = { sent: Sent[]; messageId: number; rejectStyled?: boolean };
 let recorder: Recorder | null = null;
 const telegramProto = Telegram.prototype as unknown as {
   callApi: (method: string, payload: Record<string, any>) => Promise<unknown>;
@@ -41,6 +41,9 @@ const telegramProto = Telegram.prototype as unknown as {
 const originalCallApi = telegramProto.callApi;
 telegramProto.callApi = async (method: string, payload: Record<string, any>) => {
   if (!recorder) throw new Error('Telegram chaqiruvi kutilmagan joyda');
+  if (recorder.rejectStyled && JSON.stringify(payload.reply_markup ?? '').includes('"style"')) {
+    throw new Error('Bad Request: BUTTON_STYLE_INVALID');
+  }
   recorder.sent.push({ method, payload });
   if (method === 'sendMessage') {
     return {
@@ -56,6 +59,8 @@ telegramProto.callApi = async (method: string, payload: Record<string, any>) => 
 afterAll(() => {
   telegramProto.callApi = originalCallApi;
 });
+
+let rejectStyled: (on: boolean) => void = () => undefined;
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -105,6 +110,9 @@ function harness(envOverrides: Record<string, string | undefined> = {}): Harness
 
   const sent: Sent[] = [];
   recorder = { sent, messageId: 1 };
+  rejectStyled = (on: boolean) => {
+    recorder!.rejectStyled = on;
+  };
   bot.botInfo = { id: 1, is_bot: true, first_name: 'Test', username: 'test_bot' } as never;
 
   let updateId = 1;
@@ -226,6 +234,38 @@ describe('/start va obuna', () => {
     await h.handle(press('reg:start'));
     expect(h.texts().some((t) => t.includes('Ism'))).toBe(false);
     expect(h.lastMessage()!.payload.text).toContain('obuna bo\'lmagansiz');
+  });
+});
+
+describe('tugma ranglari', () => {
+  it('kanal tugmalari ko\'k, tekshirish tugmasi yashil', async () => {
+    const h = harness();
+    await h.handle(text('/start'));
+    const rows = h.lastMessage()!.payload.reply_markup.inline_keyboard as Array<Array<Record<string, string>>>;
+    expect(rows[0]![0]!.style).toBe('primary');
+    expect(rows[1]![0]!.style).toBe('primary');
+    expect(rows[2]![0]).toMatchObject({ callback_data: 'sub:check', style: 'success' });
+  });
+
+  it('tasdiqlash yashil, bekor qilish qizil', async () => {
+    const h = harness();
+    await completeRegistration(h);
+    const rows = h.lastMessage()!.payload.reply_markup.inline_keyboard as Array<Array<Record<string, string>>>;
+    const styles = Object.fromEntries(rows.flat().map((b) => [b.callback_data, b.style]));
+    expect(styles['confirm:yes']).toBe('success');
+    expect(styles['confirm:edit']).toBe('primary');
+    expect(styles['flow:cancel']).toBe('danger');
+  });
+
+  it('Telegram rangni rad etsa, xabar rangsiz tugmalar bilan baribir yetkaziladi', async () => {
+    const h = harness();
+    rejectStyled(true);
+    await h.handle(text('/start'));
+    const msg = h.lastMessage()!;
+    expect(msg.payload.text).toContain('Assalomu alaykum');
+    const markup = JSON.stringify(msg.payload.reply_markup);
+    expect(markup).toContain('sub:check');
+    expect(markup).not.toContain('"style"');
   });
 });
 

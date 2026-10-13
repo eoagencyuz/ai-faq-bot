@@ -47,8 +47,20 @@ export function createBot(deps: BotDeps): Telegraf {
   const isAdmin = (uid: number) => config.adminIds.includes(uid);
   const validationCtx = () => ({ todayIso: dateOf(formatLocal(now(), config.timezone)), regions: config.regions });
 
-  const say = (ctx: Context, text: string, markup?: Markup) =>
-    ctx.reply(text, { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: markup });
+  const say = async (ctx: Context, text: string, markup?: Markup) => {
+    const send = (m?: Markup) =>
+      ctx.reply(text, { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: m });
+    try {
+      return await send(markup);
+    } catch (err) {
+      // Telegram tugma rangini qabul qilmasa, xabar yo'qolmasligi uchun rangsiz qayta yuboramiz
+      if (markup && kb.hasStyles(markup)) {
+        logger.warn({ err: describeError(err) }, 'Tugma ranglari qabul qilinmadi, rangsiz yuborildi');
+        return send(kb.withoutStyles(markup));
+      }
+      throw err;
+    }
+  };
 
   const ack = (ctx: Context) => ctx.answerCbQuery().catch(() => undefined);
 

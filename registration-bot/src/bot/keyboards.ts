@@ -1,10 +1,30 @@
-import type { InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove } from 'telegraf/types';
+import type {
+  InlineKeyboardButton,
+  InlineKeyboardMarkup,
+  KeyboardButton,
+  ReplyKeyboardMarkup,
+  ReplyKeyboardRemove,
+} from 'telegraf/types';
 import type { ChannelConfig, FieldKey } from '../types/index.js';
 import { FIELD_LABELS } from '../services/registration.js';
 
 export type Markup = InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove;
 
-const cb = (text: string, data: string): InlineKeyboardButton => ({ text, callback_data: data });
+/** Tugma rangi: primary — ko'k, success — yashil, danger — qizil. Rangni bilmaydigan Telegram ilovalarida tugma oddiy ko'rinadi. */
+export type ButtonStyle = 'primary' | 'success' | 'danger';
+
+const cb = (text: string, data: string, style?: ButtonStyle): InlineKeyboardButton =>
+  ({ text, callback_data: data, ...(style ? { style } : {}) }) as InlineKeyboardButton;
+
+const link = (text: string, url: string, style?: ButtonStyle): InlineKeyboardButton =>
+  ({ text, url, ...(style ? { style } : {}) }) as InlineKeyboardButton;
+
+/** Telegram rangni qabul qilmasa, xabarni rangsiz qayta yuborish uchun. */
+export function withoutStyles<T extends Markup>(markup: T): T {
+  return JSON.parse(JSON.stringify(markup, (key, value) => (key === 'style' ? undefined : value))) as T;
+}
+
+export const hasStyles = (markup: Markup): boolean => JSON.stringify(markup).includes('"style"');
 
 const grid = (items: InlineKeyboardButton[], perRow = 2): InlineKeyboardButton[][] => {
   const rows: InlineKeyboardButton[][] = [];
@@ -13,30 +33,30 @@ const grid = (items: InlineKeyboardButton[], perRow = 2): InlineKeyboardButton[]
 };
 
 const nav = (canBack: boolean): InlineKeyboardButton[][] =>
-  canBack ? [[cb('⬅️ Orqaga', 'flow:back'), cb('❌ Bekor qilish', 'flow:cancel')]] : [[cb('❌ Bekor qilish', 'flow:cancel')]];
+  canBack ? [[cb('⬅️ Orqaga', 'flow:back', 'primary'), cb('❌ Bekor qilish', 'flow:cancel', 'danger')]] : [[cb('❌ Bekor qilish', 'flow:cancel', 'danger')]];
 
 export const subscribeKeyboard = (channels: ChannelConfig[]): InlineKeyboardMarkup => ({
   inline_keyboard: [
-    ...channels.map((c): InlineKeyboardButton[] => [{ text: `📢 ${c.name}ga obuna bo'lish`, url: c.url }]),
-    [cb('✅ Obunani tekshirish', 'sub:check')],
+    ...channels.map((c): InlineKeyboardButton[] => [link(`📢 ${c.name}ga obuna bo'lish`, c.url, 'primary')]),
+    [cb('✅ Obunani tekshirish', 'sub:check', 'success')],
   ],
 });
 
-export const regKeyboard: InlineKeyboardMarkup = { inline_keyboard: [[cb("📝 Ro'yxatdan o'tish", 'reg:start')]] };
+export const regKeyboard: InlineKeyboardMarkup = { inline_keyboard: [[cb("📝 Ro'yxatdan o'tish", 'reg:start', 'success')]] };
 
 export const resumeKeyboard: InlineKeyboardMarkup = {
-  inline_keyboard: [[cb('▶️ Davom ettirish', 'resume:go')], [cb('🔄 Yangidan boshlash', 'resume:restart')]],
+  inline_keyboard: [[cb('▶️ Davom ettirish', 'resume:go', 'success')], [cb('🔄 Yangidan boshlash', 'resume:restart', 'danger')]],
 };
 
 export const retryKeyboard = (data: string): InlineKeyboardMarkup => ({
-  inline_keyboard: [[cb('🔁 Qayta urinish', data)]],
+  inline_keyboard: [[cb('🔁 Qayta urinish', data, 'primary')]],
 });
 
 export const navKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({ inline_keyboard: nav(canBack) });
 
 export const genderKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({
   inline_keyboard: [
-    [cb('👨 Erkak', 'gender:male'), cb('👩 Ayol', 'gender:female')],
+    [cb('👨 Erkak', 'gender:male', 'primary'), cb('👩 Ayol', 'gender:female', 'primary')],
     [cb("🙈 Ko'rsatishni istamayman", 'gender:skip')],
     ...nav(canBack),
   ],
@@ -56,21 +76,21 @@ export const skipKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({
 
 export const confirmKeyboard: InlineKeyboardMarkup = {
   inline_keyboard: [
-    [cb('✅ Tasdiqlash', 'confirm:yes')],
-    [cb('✏️ Tahrirlash', 'confirm:edit')],
-    [cb('❌ Bekor qilish', 'flow:cancel')],
+    [cb('✅ Tasdiqlash', 'confirm:yes', 'success')],
+    [cb('✏️ Tahrirlash', 'confirm:edit', 'primary')],
+    [cb('❌ Bekor qilish', 'flow:cancel', 'danger')],
   ],
 };
 
 export const editKeyboard = (fields: FieldKey[]): InlineKeyboardMarkup => ({
   inline_keyboard: [
     ...grid(fields.map((f) => cb(FIELD_LABELS[f], `edit:${f}`))),
-    [cb('⬅️ Ortga', 'confirm:back')],
+    [cb('⬅️ Ortga', 'confirm:back', 'primary')],
   ],
 });
 
 export const phoneReplyKeyboard: ReplyKeyboardMarkup = {
-  keyboard: [[{ text: '📱 Telefon raqamimni yuborish', request_contact: true }], [{ text: '⬅️ Orqaga' }, { text: '❌ Bekor qilish' }]],
+  keyboard: [[{ text: '📱 Telefon raqamimni yuborish', request_contact: true, style: 'success' } as KeyboardButton], [{ text: '⬅️ Orqaga' }, { text: '❌ Bekor qilish' }]],
   resize_keyboard: true,
   one_time_keyboard: true,
 };
@@ -79,8 +99,8 @@ export const removeKeyboard: ReplyKeyboardRemove = { remove_keyboard: true };
 
 export const adminKeyboard: InlineKeyboardMarkup = {
   inline_keyboard: [
-    [cb('📊 Statistika', 'admin:stats'), cb('👥 Jami', 'admin:total')],
-    [cb('📅 Bugungi', 'admin:today'), cb('🕒 Oxirgilar', 'admin:recent')],
-    [cb('📄 Google Sheets', 'admin:sheets'), cb('ℹ️ Bot holati', 'admin:bot')],
+    [cb('📊 Statistika', 'admin:stats', 'primary'), cb('👥 Jami', 'admin:total', 'primary')],
+    [cb('📅 Bugungi', 'admin:today', 'primary'), cb('🕒 Oxirgilar', 'admin:recent', 'primary')],
+    [cb('📄 Google Sheets', 'admin:sheets', 'success'), cb('ℹ️ Bot holati', 'admin:bot', 'primary')],
   ],
 };
