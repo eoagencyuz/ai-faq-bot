@@ -1,6 +1,6 @@
 import { createPrivateKey } from 'node:crypto';
 import { z } from 'zod';
-import { FIELD_KEYS, REQUIRED_FIELDS, type Config, type FieldKey, type Regions } from '../types/index.js';
+import type { Config } from '../types/index.js';
 import { isValidTimeZone } from '../utils/time.js';
 
 export class ConfigError extends Error {}
@@ -28,7 +28,7 @@ const schema = z.object({
   CHANNEL_2_URL: channelUrlSchema,
   CHANNEL_2_NAME: z.string().trim().min(1).max(40).default('2-kanal'),
   GOOGLE_SPREADSHEET_ID: z.string().min(20, "GOOGLE_SPREADSHEET_ID noto'g'ri"),
-  GOOGLE_SHEET_NAME: z.string().trim().min(1).max(100).default('Registrations'),
+  GOOGLE_SHEET_NAME: z.string().trim().min(1).max(100).default('Media_AI'),
   // Ikki usul: alohida (EMAIL + PRIVATE_KEY) yoki butun service account JSON'i (GOOGLE_SERVICE_ACCOUNT_JSON)
   GOOGLE_SERVICE_ACCOUNT_EMAIL: emptyAsUndefined(z.string().email("GOOGLE_SERVICE_ACCOUNT_EMAIL noto'g'ri")),
   GOOGLE_PRIVATE_KEY: emptyAsUndefined(z.string()),
@@ -38,8 +38,6 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   SESSION_TTL_HOURS: z.coerce.number().positive().max(720).default(24),
   SESSION_FILE: z.string().min(1).default('./data/sessions.json'),
-  REGISTRATION_FIELDS: z.string().default(FIELD_KEYS.join(',')),
-  REGIONS_JSON: z.string().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).optional(),
 });
 
@@ -92,35 +90,6 @@ function resolveGoogleCredentials(
   return { email: email ?? '', key: normalized };
 }
 
-export function parseFields(raw: string): { fields: FieldKey[]; unknown: string[] } {
-  const tokens = raw
-    .split(',')
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const known = new Set<string>(FIELD_KEYS);
-  const unknown = tokens.filter((t) => !known.has(t));
-  const selected = new Set<string>([...tokens, ...REQUIRED_FIELDS]);
-  return { fields: FIELD_KEYS.filter((k) => selected.has(k)), unknown };
-}
-
-export function parseRegions(raw: string | undefined): { regions: Regions; error?: string } {
-  if (!raw || !raw.trim()) return { regions: null };
-  let data: unknown;
-  try {
-    data = JSON.parse(raw);
-  } catch {
-    return { regions: null, error: "JSON noto'g'ri" };
-  }
-  if (!data || typeof data !== 'object' || Array.isArray(data) || Object.keys(data).length === 0) {
-    return { regions: null, error: '{"Viloyat": ["Tuman", ...]} ko\'rinishida bo\'lsin' };
-  }
-  for (const [region, districts] of Object.entries(data)) {
-    const valid = Array.isArray(districts) && districts.every((d) => typeof d === 'string' && d.trim() !== '');
-    if (!valid) return { regions: null, error: `"${region}" uchun tumanlar ro'yxati noto'g'ri` };
-  }
-  return { regions: data as Record<string, string[]> };
-}
-
 /** Muhit o'zgaruvchilarini tekshiradi. Xato bo'lsa, qiymatlarni emas, faqat nomlarini ko'rsatadi. */
 export function parseConfig(env: Record<string, string | undefined>): Config {
   const parsed = schema.safeParse(env);
@@ -139,12 +108,6 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
 
   const google = resolveGoogleCredentials(e, errors);
 
-  const { fields, unknown } = parseFields(e.REGISTRATION_FIELDS);
-  if (unknown.length > 0) errors.push(`REGISTRATION_FIELDS: noma'lum maydon(lar): ${unknown.join(', ')}`);
-
-  const regionsResult = parseRegions(e.REGIONS_JSON);
-  if (regionsResult.error) errors.push(`REGIONS_JSON: ${regionsResult.error}`);
-
   if (errors.length > 0) throw new ConfigError(errors.join('\n'));
 
   return {
@@ -162,8 +125,6 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     logLevel: e.LOG_LEVEL,
     sessionTtlHours: e.SESSION_TTL_HOURS,
     sessionFile: e.SESSION_FILE,
-    fields,
-    regions: regionsResult.regions,
     port: e.PORT,
   };
 }

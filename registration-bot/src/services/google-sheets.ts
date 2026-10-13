@@ -1,6 +1,6 @@
 import { google, type sheets_v4 } from 'googleapis';
 import type { Logger } from '../utils/logger.js';
-import { SHEET_HEADERS, type SheetsPort } from './registry.js';
+import { LAST_COLUMN, SHEET_HEADERS, type SheetsPort } from './registry.js';
 
 export interface SheetsOptions {
   spreadsheetId: string;
@@ -36,7 +36,7 @@ export class SheetsSetupError extends Error {}
 export class GoogleSheetsAdapter implements SheetsPort {
   private readonly api: sheets_v4.Sheets;
   private readonly quoted: string;
-  private readonly lastColumn = 'N';
+  private readonly lastColumn = LAST_COLUMN;
 
   constructor(private readonly opts: SheetsOptions) {
     const auth = new google.auth.JWT({

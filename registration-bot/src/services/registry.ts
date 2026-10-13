@@ -1,5 +1,5 @@
-import type { RegistrationRecord } from '../types/index.js';
-import { GENDER_LABELS, toSheetText } from '../validators/registration.js';
+import { toSheetText } from '../validators/registration.js';
+import { answerLabel, noteOf, type QuestionKey, type RegistrationRecord } from './questionnaire.js';
 import { addDays, dateOf, formatLocal } from '../utils/time.js';
 
 export const SHEET_HEADERS = [
@@ -7,14 +7,30 @@ export const SHEET_HEADERS = [
   'Created At',
   'Telegram User ID',
   'Telegram Username',
-  'First Name',
-  'Last Name',
+  'Full Name',
   'Phone',
-  'Birth Date',
-  'Gender',
-  'Region',
-  'District',
-  'Additional Info',
+  'Telegram Phone Match',
+  'Program',
+  'Course',
+  'Occupation',
+  'Occupation Other',
+  'Work Field',
+  'Work Field Other',
+  'Free Time',
+  'Weekly Hours',
+  'Start Time',
+  'Motivation',
+  'Media Interests',
+  'Media Experience',
+  'Has Portfolio',
+  'Portfolio URL',
+  'AI Usage',
+  'AI Tools',
+  'AI Goals',
+  'Devices',
+  'Three Month Goal',
+  'Ready For Tasks',
+  'Work Style',
   'Subscription Verified',
   'Registration Status',
 ] as const;
@@ -25,17 +41,19 @@ export const COL = {
   CREATED: 1,
   USER_ID: 2,
   USERNAME: 3,
-  FIRST: 4,
-  LAST: 5,
-  PHONE: 6,
-  BIRTH: 7,
-  GENDER: 8,
-  REGION: 9,
-  DISTRICT: 10,
-  ADDITIONAL: 11,
-  SUB_VERIFIED: 12,
-  STATUS: 13,
+  FULL_NAME: 4,
+  PHONE: 5,
+  STATUS: SHEET_HEADERS.length - 1,
 } as const;
+
+/** 1 -> A, 27 -> AA */
+export function columnLetter(n: number): string {
+  let s = '';
+  for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s;
+  return s;
+}
+
+export const LAST_COLUMN = columnLetter(SHEET_HEADERS.length);
 
 /** Google Sheets bilan ishlovchi minimal interfeys. Testlarda oddiy xotira implementatsiyasi ishlatiladi. */
 export interface SheetsPort {
@@ -46,20 +64,41 @@ export interface SheetsPort {
 }
 
 export function toRow(record: RegistrationRecord, timeZone: string): string[] {
+  const { answers } = record;
+  const label = (key: QuestionKey) => toSheetText(answerLabel(key, answers));
+  const contact = answers.phone_contact;
+  const portfolio = answers.portfolio;
   return [
     record.id,
     formatLocal(record.createdAt, timeZone),
     String(record.userId),
     toSheetText(record.username),
-    toSheetText(record.firstName),
-    toSheetText(record.lastName),
-    record.phone,
-    record.birthDate,
-    record.gender ? GENDER_LABELS[record.gender] : '',
-    toSheetText(record.region),
-    toSheetText(record.district),
-    toSheetText(record.additionalInfo),
-    record.subscriptionVerified ? 'Ha' : "Yo'q",
+    label('full_name'),
+    // Telefon raqami "+998..." ko'rinishida tekshirilgan; RAW yozilgani uchun formula bo'lmaydi
+    answerLabel('phone', answers),
+    contact?.kind === 'contact' ? (contact.matchesManual ? 'Ha' : `Yo‘q (${contact.phone})`) : '',
+    label('program'),
+    label('course'),
+    label('occupation'),
+    toSheetText(noteOf(answers, 'occupation')),
+    label('work_field'),
+    toSheetText(noteOf(answers, 'work_field')),
+    label('free_time'),
+    label('weekly_hours'),
+    label('start_time'),
+    label('motivation'),
+    label('media_interests'),
+    label('media_experience'),
+    portfolio?.kind === 'portfolio' && portfolio.hasPortfolio ? 'Ha' : 'Yo‘q',
+    portfolio?.kind === 'portfolio' && portfolio.url ? toSheetText(portfolio.url) : '',
+    label('ai_usage'),
+    label('ai_tools'),
+    label('ai_goals'),
+    label('devices'),
+    label('three_month_goal'),
+    label('ready_for_tasks'),
+    label('work_style'),
+    record.subscriptionVerified ? 'Ha' : 'Yo‘q',
     'Yakunlandi',
   ];
 }

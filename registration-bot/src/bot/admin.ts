@@ -1,11 +1,12 @@
 import { COL, type RegistrationStats } from '../services/registry.js';
+import { maskPhone } from '../validators/registration.js';
 import { escapeHtml } from './texts.js';
 
 export function formatStats(s: RegistrationStats, sheetName: string): string {
   return [
     '📊 <b>Statistika</b>',
     '',
-    `👥 Jami ro'yxatdan o'tganlar: <b>${s.total}</b>`,
+    `👥 Jami topshirilgan anketalar: <b>${s.total}</b>`,
     `📅 Bugun: <b>${s.today}</b>`,
     `🗓 Oxirgi 7 kun: <b>${s.last7}</b>`,
     `🗓 Oxirgi 30 kun: <b>${s.last30}</b>`,
@@ -14,15 +15,14 @@ export function formatStats(s: RegistrationStats, sheetName: string): string {
   ].join('\n');
 }
 
-/** Ism va telefonning faqat oxirgi 4 raqami ko'rsatiladi (keraksiz shaxsiy ma'lumotsiz). */
+/** Ism va yashirilgan telefon ko'rsatiladi (keraksiz shaxsiy ma'lumotsiz). */
 export function formatRecent(rows: string[][]): string {
-  if (rows.length === 0) return "Hozircha ro'yxatdan o'tganlar yo'q.";
+  if (rows.length === 0) return "Hozircha anketalar yo'q.";
   const lines = rows.map((r, i) => {
-    const name = `${r[COL.FIRST] ?? ''} ${r[COL.LAST] ?? ''}`.trim();
-    const last4 = (r[COL.PHONE] ?? '').slice(-4);
-    return `${i + 1}. ${escapeHtml(name)} — ${escapeHtml(r[COL.CREATED] ?? '')} — ***${escapeHtml(last4)}`;
+    const name = (r[COL.FULL_NAME] ?? '').replace(/^'/, '');
+    return `${i + 1}. ${escapeHtml(name)} — ${escapeHtml(r[COL.CREATED] ?? '')} — ${escapeHtml(maskPhone(r[COL.PHONE] ?? ''))}`;
   });
-  return "🕒 <b>Oxirgi ro'yxatdan o'tganlar</b>\n\n" + lines.join('\n');
+  return "🕒 <b>Oxirgi anketalar</b>\n\n" + lines.join('\n');
 }
 
 export function formatBotStatus(info: {
@@ -37,7 +37,7 @@ export function formatBotStatus(info: {
     'ℹ️ <b>Bot holati</b>',
     '',
     `⏱ Ishlash vaqti: ${Math.floor(minutes / 60)} soat ${minutes % 60} daqiqa`,
-    `💬 Faol sessiyalar: ${info.sessions}`,
+    `💬 Jarayondagi anketalar: ${info.sessions}`,
     `🕘 Vaqt zonasi: ${escapeHtml(info.timezone)}`,
     `🛠 Adminlar soni: ${info.adminCount}`,
     '🔁 Rejim: polling (bitta instance)',

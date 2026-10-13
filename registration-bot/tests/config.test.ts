@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, parseConfig, parseFields } from '../src/config/env.js';
+import { ConfigError, parseConfig } from '../src/config/env.js';
 import { TEST_PRIVATE_KEY, baseEnv } from './helpers.js';
 
 describe('parseConfig', () => {
@@ -7,8 +7,7 @@ describe('parseConfig', () => {
     const config = parseConfig(baseEnv());
     expect(config.channels).toHaveLength(2);
     expect(config.adminIds).toEqual([111111111, 222222222]);
-    expect(config.fields).toContain('phone');
-    expect(config.regions).toBeNull();
+    expect(config.googleSheetName).toBe('Media_AI');
   });
 
   it("noto'g'ri bot tokenini rad etadi", () => {
@@ -19,18 +18,8 @@ describe('parseConfig', () => {
     expect(() => parseConfig(baseEnv({ ADMIN_IDS: 'ali,111' }))).toThrow(/ADMIN_IDS/);
   });
 
-  it("noma'lum maydon nomini ko'rsatadi", () => {
-    expect(() => parseConfig(baseEnv({ REGISTRATION_FIELDS: 'first_name,phone,foo' }))).toThrow(/foo/);
-  });
-
-  it('ism va telefon doim yoqilgan bo\'ladi', () => {
-    const config = parseConfig(baseEnv({ REGISTRATION_FIELDS: 'birth_date' }));
-    expect(config.fields).toEqual(expect.arrayContaining(['first_name', 'phone', 'birth_date']));
-    expect(config.fields).not.toContain('gender');
-  });
-
-  it("noto'g'ri REGIONS_JSON ni rad etadi", () => {
-    expect(() => parseConfig(baseEnv({ REGIONS_JSON: '{bad' }))).toThrow(/REGIONS_JSON/);
+  it("varaq nomi berilmasa Media_AI bo'ladi", () => {
+    expect(parseConfig(baseEnv({ GOOGLE_SHEET_NAME: undefined })).googleSheetName).toBe('Media_AI');
   });
 
   it("ikkala kanal bir xil bo'lsa rad etadi", () => {
@@ -99,11 +88,5 @@ describe('PORT', () => {
     expect(parseConfig(baseEnv()).port).toBeUndefined();
     expect(parseConfig(baseEnv({ PORT: '10000' })).port).toBe(10000);
     expect(() => parseConfig(baseEnv({ PORT: 'abc' }))).toThrow(ConfigError);
-  });
-});
-
-describe('parseFields', () => {
-  it('kanonik tartibda qaytaradi va majburiy maydonlarni qo\'shadi', () => {
-    expect(parseFields('phone,last_name').fields).toEqual(['first_name', 'last_name', 'phone']);
   });
 });

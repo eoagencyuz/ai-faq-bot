@@ -5,8 +5,8 @@ import type {
   ReplyKeyboardMarkup,
   ReplyKeyboardRemove,
 } from 'telegraf/types';
-import type { ChannelConfig, FieldKey } from '../types/index.js';
-import { FIELD_LABELS } from '../services/registration.js';
+import type { ChannelConfig } from '../types/index.js';
+import { optionsOf, validateSelection, type Question } from '../services/questionnaire.js';
 
 export type Markup = InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove;
 
@@ -26,15 +26,6 @@ export function withoutStyles<T extends Markup>(markup: T): T {
 
 export const hasStyles = (markup: Markup): boolean => JSON.stringify(markup).includes('"style"');
 
-const grid = (items: InlineKeyboardButton[], perRow = 2): InlineKeyboardButton[][] => {
-  const rows: InlineKeyboardButton[][] = [];
-  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow));
-  return rows;
-};
-
-const nav = (canBack: boolean): InlineKeyboardButton[][] =>
-  canBack ? [[cb('⬅️ Orqaga', 'flow:back', 'primary'), cb('❌ Bekor qilish', 'flow:cancel', 'danger')]] : [[cb('❌ Bekor qilish', 'flow:cancel', 'danger')]];
-
 export const subscribeKeyboard = (channels: ChannelConfig[]): InlineKeyboardMarkup => ({
   inline_keyboard: [
     ...channels.map((c): InlineKeyboardButton[] => [link(`📢 ${c.name}ga obuna bo'lish`, c.url, 'primary')]),
@@ -42,58 +33,48 @@ export const subscribeKeyboard = (channels: ChannelConfig[]): InlineKeyboardMark
   ],
 });
 
-export const regKeyboard: InlineKeyboardMarkup = { inline_keyboard: [[cb("📝 Ro'yxatdan o'tish", 'reg:start', 'success')]] };
-
-export const resumeKeyboard: InlineKeyboardMarkup = {
-  inline_keyboard: [[cb('▶️ Davom ettirish', 'resume:go', 'success')], [cb('🔄 Yangidan boshlash', 'resume:restart', 'danger')]],
-};
+export const startKeyboard: InlineKeyboardMarkup = { inline_keyboard: [[cb('📝 Anketani boshlash', 'reg:start', 'success')]] };
 
 export const retryKeyboard = (data: string): InlineKeyboardMarkup => ({
   inline_keyboard: [[cb('🔁 Qayta urinish', data, 'primary')]],
 });
 
-export const navKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({ inline_keyboard: nav(canBack) });
+/** Variant matni shundan uzun bo'lsa, savol matnida to'liq ro'yxat beriladi, tugmada raqam bilan qisqartiriladi. */
+export const LONG_LABEL = 32;
 
-export const genderKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({
-  inline_keyboard: [
-    [cb('👨 Erkak', 'gender:male', 'primary'), cb('👩 Ayol', 'gender:female', 'primary')],
-    [cb("🙈 Ko'rsatishni istamayman", 'gender:skip')],
-    ...nav(canBack),
-  ],
+export const hasLongLabels = (q: Question): boolean => optionsOf(q).some((o) => o.label.length > LONG_LABEL);
+
+const shorten = (label: string, max: number) => (label.length > max ? `${label.slice(0, max - 1).trimEnd()}…` : label);
+
+/**
+ * Savol tugmalari: a:<savol>:<variant> — tanlash/belgilash, n:<savol> — "➡️ Keyingi".
+ * Orqaga yoki tahrirlash tugmalari yo'q. "Keyingi" faqat tanlov to'g'ri bo'lganda ko'rinadi.
+ */
+export function choiceKeyboard(index: number, q: Question, selection: string[]): InlineKeyboardMarkup {
+  const multi = q.kind === 'multi';
+  const numbered = hasLongLabels(q);
+  const rows: InlineKeyboardButton[][] = optionsOf(q).map((o, i) => {
+    const selected = selection.includes(o.id);
+    const mark = selected ? '✅ ' : multi ? '⬜️ ' : '';
+    const label = numbered ? `${i + 1}. ${shorten(o.label, 40)}` : o.label;
+    return [cb(`${mark}${label}`, `a:${index}:${i}`, selected ? 'primary' : undefined)];
+  });
+  if (validateSelection(q, selection).ok) rows.push([cb('➡️ Keyingi', `n:${index}`, 'success')]);
+  return { inline_keyboard: rows };
+}
+
+export const phoneConfirmKeyboard = (index: number): InlineKeyboardMarkup => ({
+  inline_keyboard: [[cb('✅ Tasdiqlayman', `pc:${index}:y`, 'success')]],
 });
 
-export const regionKeyboard = (names: string[], canBack: boolean): InlineKeyboardMarkup => ({
-  inline_keyboard: [...grid(names.map((n, i) => cb(n.slice(0, 40), `region:${i}`))), ...nav(canBack)],
-});
-
-export const districtKeyboard = (names: string[], canBack: boolean): InlineKeyboardMarkup => ({
-  inline_keyboard: [...grid(names.map((n, i) => cb(n.slice(0, 40), `district:${i}`))), ...nav(canBack)],
-});
-
-export const skipKeyboard = (canBack: boolean): InlineKeyboardMarkup => ({
-  inline_keyboard: [[cb("⏭ O'tkazib yuborish", 'skip:additional_info')], ...nav(canBack)],
-});
-
-export const confirmKeyboard: InlineKeyboardMarkup = {
-  inline_keyboard: [
-    [cb('✅ Tasdiqlash', 'confirm:yes', 'success')],
-    [cb('✏️ Tahrirlash', 'confirm:edit', 'primary')],
-    [cb('❌ Bekor qilish', 'flow:cancel', 'danger')],
-  ],
-};
-
-export const editKeyboard = (fields: FieldKey[]): InlineKeyboardMarkup => ({
-  inline_keyboard: [
-    ...grid(fields.map((f) => cb(FIELD_LABELS[f], `edit:${f}`))),
-    [cb('⬅️ Ortga', 'confirm:back', 'primary')],
-  ],
-});
-
-export const phoneReplyKeyboard: ReplyKeyboardMarkup = {
-  keyboard: [[{ text: '📱 Telefon raqamimni yuborish', request_contact: true, style: 'success' } as KeyboardButton], [{ text: '⬅️ Orqaga' }, { text: '❌ Bekor qilish' }]],
+export const contactKeyboard: ReplyKeyboardMarkup = {
+  keyboard: [[{ text: '📱 Raqamni ulashish', request_contact: true, style: 'success' } as KeyboardButton]],
   resize_keyboard: true,
-  one_time_keyboard: true,
+  one_time_keyboard: false,
+  is_persistent: true,
 };
+
+export const emptyInline: InlineKeyboardMarkup = { inline_keyboard: [] };
 
 export const removeKeyboard: ReplyKeyboardRemove = { remove_keyboard: true };
 

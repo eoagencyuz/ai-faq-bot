@@ -4,3 +4,8 @@ coverage/
 .env
 data/
 *.log
+# Google service account kalitlari va boshqa credential fayllari
+*service-account*.json
+credentials*.json
+gen-lang-client-*.json
+*.pem

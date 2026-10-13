@@ -1,17 +1,38 @@
 import { randomBytes } from 'node:crypto';
 import { Telegraf, type Context } from 'telegraf';
-import type { Config, FieldKey } from '../types/index.js';
-import type { SessionStore } from '../services/session.js';
-import type { Draft } from '../services/registration.js';
+import type { InlineKeyboardMarkup } from 'telegraf/types';
+import type { Config } from '../types/index.js';
+import {
+  AnswerRejected,
+  acceptAnswer,
+  allAnswered,
+  currentQuestion,
+  newSession,
+  type SessionStore,
+  type UserSession,
+} from '../services/session.js';
 import type { RegistrationRegistry } from '../services/registry.js';
 import { computeStats, recentRows } from '../services/registry.js';
 import { checkSubscriptions, type MemberFetcher, type SubscriptionReport } from '../services/subscription.js';
-import * as flow from '../services/registration.js';
-import { contactPhone } from '../validators/registration.js';
+import {
+  findInvalidAnswer,
+  optionsOf,
+  toggleSelection,
+  validateSelection,
+  type Answer,
+  type Question,
+} from '../services/questionnaire.js';
+import {
+  contactPhone,
+  normalizePhone,
+  validateFullName,
+  validateLongText,
+  validateNote,
+  validatePortfolioUrl,
+} from '../validators/registration.js';
 import { createRateLimiter } from '../middleware/rate-limit.js';
 import { describeError, hashId, type Logger } from '../utils/logger.js';
-import { dateOf, formatLocal } from '../utils/time.js';
-import { BTN, FIELD_PROMPTS, TEXT, escapeHtml, summaryText } from './texts.js';
+import { TEXT, escapeHtml, questionText } from './texts.js';
 import * as kb from './keyboards.js';
 import type { Markup } from './keyboards.js';
 import { formatBotStatus, formatRecent, formatStats } from './admin.js';
@@ -24,28 +45,41 @@ export interface BotDeps {
   logger: Logger;
   startedAt: Date;
   now?: () => Date;
+  /** Spamdan himoya: foydalanuvchi uchun oynadagi maksimal update soni. */
+  rateLimit?: { limit: number; windowMs: number };
 }
 
-const MAX_MESSAGE_CHARS = 1000;
-const RATE_LIMIT = { limit: 20, windowMs: 10_000 };
+const MAX_MESSAGE_CHARS = 4000;
+const RATE_LIMIT = { limit: 30, windowMs: 10_000 };
 
 function newRegistrationId(date: Date): string {
-  return `REG-${date.getTime().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
+  return `MAI-${date.getTime().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 }
 
 export function createBot(deps: BotDeps): Telegraf {
   const { config, sessions, registry, fetchMember, logger, startedAt } = deps;
   const now = deps.now ?? (() => new Date());
-  const bot = new Telegraf(config.botToken, { handlerTimeout: 20_000 });
-  const allowUpdate = createRateLimiter(RATE_LIMIT.limit, RATE_LIMIT.windowMs);
+  const bot = new Telegraf(config.botToken, { handlerTimeout: 30_000 });
+  const rate = deps.rateLimit ?? RATE_LIMIT;
+  const allowUpdate = createRateLimiter(rate.limit, rate.windowMs);
 
   const uidOf = (ctx: Context): number => {
     const id = ctx.from?.id;
-    if (id === undefined) throw new Error('Update tarkibida foydalanuvchi yo\'q');
+    if (id === undefined) throw new Error("Update tarkibida foydalanuvchi yo'q");
     return id;
   };
   const isAdmin = (uid: number) => config.adminIds.includes(uid);
-  const validationCtx = () => ({ todayIso: dateOf(formatLocal(now(), config.timezone)), regions: config.regions });
+
+  // ---- Har foydalanuvchi uchun navbat: parallel xabarlar ketma-ket bajariladi, birinchi to'g'ri javob qabul qilinadi ----
+  const queues = new Map<number, Promise<unknown>>();
+  const withLock = <T>(uid: number, fn: () => Promise<T>): Promise<T> => {
+    const previous = queues.get(uid) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(fn);
+    queues.set(uid, run);
+    return run.finally(() => {
+      if (queues.get(uid) === run) queues.delete(uid);
+    });
+  };
 
   const say = async (ctx: Context, text: string, markup?: Markup) => {
     const send = (m?: Markup) =>
@@ -62,141 +96,186 @@ export function createBot(deps: BotDeps): Telegraf {
     }
   };
 
-  const ack = (ctx: Context) => ctx.answerCbQuery().catch(() => undefined);
+  /** Tugmali xabarning klaviaturasini yangilaydi. Xato bo'lsa (masalan, o'zgarish yo'q) — e'tiborsiz. */
+  const editMarkup = async (ctx: Context, markup: InlineKeyboardMarkup) => {
+    try {
+      await ctx.editMessageReplyMarkup(markup);
+    } catch {
+      if (kb.hasStyles(markup)) await ctx.editMessageReplyMarkup(kb.withoutStyles(markup)).catch(() => undefined);
+    }
+  };
+
+  const ack = (ctx: Context, text?: string) => ctx.answerCbQuery(text).catch(() => undefined);
 
   const verify = (uid: number): Promise<SubscriptionReport> =>
     checkSubscriptions(config.channels, uid, fetchMember, (channel, err) =>
       logger.warn({ channel: channel.key, err: describeError(err) }, 'Obuna tekshiruvi xatosi'),
     );
 
-  /** Obuna tasdiqlanmagan bo'lsa, tegishli xabarni yuboradi va false qaytaradi. */
-  const gate = async (ctx: Context, uid: number): Promise<boolean> => {
-    const report = await verify(uid);
-    if (report.subscribed) return true;
-    sessions.setStage(uid, 'subscribe', sessions.get(uid)?.draft ?? null);
-    logger.info({ userHash: hashId(uid), missing: report.missing.length, failed: report.failed.length }, 'Obuna talab qilindi');
+  const sendSubscriptionProblem = async (ctx: Context, report: SubscriptionReport) => {
     if (report.missing.length > 0) {
       await say(ctx, TEXT.missing(report.missing.map((c) => c.name)), kb.subscribeKeyboard(config.channels));
     } else {
       await say(ctx, TEXT.subscriptionError, kb.retryKeyboard('sub:check'));
     }
+  };
+
+  /** Obuna tasdiqlanmagan bo'lsa, tegishli xabarni yuboradi va false qaytaradi. */
+  const gate = async (ctx: Context, uid: number): Promise<boolean> => {
+    const report = await verify(uid);
+    if (report.subscribed) return true;
+    logger.info({ userHash: hashId(uid), missing: report.missing.length, failed: report.failed.length }, 'Obuna talab qilindi');
+    await sendSubscriptionProblem(ctx, report);
     return false;
   };
 
-  const askStep = async (ctx: Context, uid: number, draft: Draft): Promise<void> => {
-    const field = draft.step as FieldKey;
-    sessions.setStage(uid, 'filling', draft);
-    const n = config.fields.indexOf(field) + 1;
-    const header = `<b>${n}/${config.fields.length}</b>. ${FIELD_PROMPTS[field]}`;
-    const canBack = draft.history.length > 0 || draft.editing;
+  /** Sheets'da borligini tekshiradi; Sheets ishlamasa, foydalanuvchini to'xtatmaymiz (yakunda yana tekshiriladi). */
+  const registeredInSheets = async (uid: number): Promise<boolean> => {
+    try {
+      return await registry.isRegistered(uid);
+    } catch (err) {
+      logger.warn({ err: describeError(err) }, 'Dublikat tekshiruvi vaqtincha bajarilmadi');
+      return false;
+    }
+  };
 
-    if (field === 'phone') {
-      await say(ctx, header, kb.phoneReplyKeyboard);
+  const markCompleted = (session: UserSession) => {
+    sessions.save({ ...session, status: 'completed', pending: { selection: [] } });
+  };
+
+  // ---- Savollarni ko'rsatish ----
+
+  const askQuestion = async (ctx: Context, session: UserSession): Promise<void> => {
+    const q = currentQuestion(session);
+    if (!q) return;
+    const index = session.currentQuestionIndex;
+    const { pending } = session;
+    if (pending.awaiting === 'other_note') {
+      await say(ctx, TEXT.otherNote);
       return;
     }
-    if (field === 'gender') {
-      await say(ctx, header, kb.genderKeyboard(canBack));
+    if (pending.awaiting === 'portfolio_url') {
+      await say(ctx, TEXT.portfolioUrl);
       return;
     }
-    if (field === 'region' && config.regions) {
-      await say(ctx, header, kb.regionKeyboard(Object.keys(config.regions), canBack));
+    if (pending.awaiting === 'phone_confirm' && pending.contactPhone) {
+      const manual = session.answers.phone;
+      await say(
+        ctx,
+        TEXT.phoneMismatch(manual?.kind === 'text' ? manual.value : '', pending.contactPhone),
+        kb.phoneConfirmKeyboard(index),
+      );
       return;
     }
-    if (field === 'district' && draft.data.region && config.regions) {
-      const list = Object.prototype.hasOwnProperty.call(config.regions, draft.data.region)
-        ? config.regions[draft.data.region]
-        : undefined;
-      if (list && list.length > 0) {
-        await say(ctx, header, kb.districtKeyboard(list, canBack));
+    const text = questionText(index, q);
+    if (q.kind === 'phone_contact') await say(ctx, text, kb.contactKeyboard);
+    else if (optionsOf(q).length > 0) await say(ctx, text, kb.choiceKeyboard(index, q, pending.selection));
+    else await say(ctx, text);
+  };
+
+  /** Javobni qabul qilib, sessiyani saqlaydi va keyingi savolni beradi (yoki anketani yakunlaydi). */
+  const commit = async (ctx: Context, session: UserSession, q: Question, answer: Answer): Promise<void> => {
+    const next = acceptAnswer(session, q.key, answer, now().getTime());
+    // Diskka yozilmaguncha keyingi savolga o'tilmaydi; xato bo'lsa javob qabul qilinmagan hisoblanadi
+    sessions.save(next);
+    logger.info({ userHash: hashId(session.telegramUserId), question: q.key }, 'Javob qabul qilindi');
+    if (q.kind === 'phone_contact') await say(ctx, TEXT.contactSaved, kb.removeKeyboard);
+    if (allAnswered(next)) await finalize(ctx, next);
+    else await askQuestion(ctx, next);
+  };
+
+  // ---- Yakunlash ----
+
+  const finalize = async (ctx: Context, session: UserSession): Promise<void> => {
+    const uid = session.telegramUserId;
+    const userHash = hashId(uid);
+    if (session.status === 'completed') {
+      await say(ctx, TEXT.alreadyRegistered);
+      return;
+    }
+    if (session.status !== 'in_progress' || !allAnswered(session)) return;
+
+    // 1–2. Barcha javoblarni server tomonida qayta tekshirish
+    const invalid = findInvalidAnswer(session.answers);
+    if (invalid) {
+      logger.error({ userHash, question: invalid.key }, "Saqlangan javob tekshiruvdan o'tmadi");
+      await say(ctx, TEXT.invalidStored);
+      return;
+    }
+    const saving: UserSession = { ...session, status: 'saving' };
+    sessions.save(saving);
+    const backToProgress = () => sessions.save({ ...saving, status: 'in_progress' });
+    await say(ctx, TEXT.saving);
+    try {
+      // 3. Avval topshirganmi
+      if (await registry.isRegistered(uid)) {
+        markCompleted(saving);
+        logger.info({ userHash }, 'Anketa avval topshirilgan');
+        await say(ctx, TEXT.alreadyRegistered);
         return;
       }
+      // 4. Obunani qayta tekshirish
+      const report = await verify(uid);
+      if (!report.subscribed) {
+        backToProgress();
+        await sendSubscriptionProblem(ctx, report);
+        return;
+      }
+      // 5. Google Sheets'ga yozish (idempotent)
+      const outcome = await registry.save({
+        id: newRegistrationId(now()),
+        createdAt: now(),
+        userId: uid,
+        username: ctx.from?.username ?? session.telegramUsername,
+        answers: session.answers,
+        subscriptionVerified: true,
+      });
+      // 6. Faqat shundan keyin yakunlangan deb belgilanadi
+      markCompleted(saving);
+      logger.info({ userHash, outcome }, 'Anketa yakunlandi');
+      await say(ctx, outcome === 'saved' ? TEXT.success : TEXT.alreadyRegistered);
+    } catch (err) {
+      logger.error({ userHash, err: describeError(err) }, 'Anketani saqlashda xato');
+      backToProgress();
+      await say(ctx, TEXT.saveError, kb.retryKeyboard('fin:retry'));
     }
-    if (field === 'additional_info') {
-      await say(ctx, header, kb.skipKeyboard(canBack));
-      return;
-    }
-    await say(ctx, header, kb.navKeyboard(canBack));
   };
 
-  const showConfirm = async (ctx: Context, uid: number, draft: Draft): Promise<void> => {
-    const confirmed: Draft = { ...draft, step: 'confirm', editing: false };
-    sessions.setStage(uid, 'confirm', confirmed);
-    await say(
-      ctx,
-      `${TEXT.confirmHeader}\n\n${summaryText(confirmed, config.fields)}\n\n${TEXT.confirmQuestion}`,
-      kb.confirmKeyboard,
-    );
-  };
-
-  const resume = (ctx: Context, uid: number, draft: Draft): Promise<void> =>
-    draft.step === 'confirm' ? showConfirm(ctx, uid, draft) : askStep(ctx, uid, draft);
-
-  const afterVerified = async (ctx: Context, uid: number): Promise<void> => {
-    const session = sessions.get(uid);
-    if (session?.stage === 'done') {
+  /** Sessiya holatiga qarab foydalanuvchini to'g'ri joyga qaytaradi. */
+  const continueSession = async (ctx: Context, session: UserSession): Promise<void> => {
+    if (session.status === 'completed') {
       await say(ctx, TEXT.alreadyRegistered);
       return;
     }
-    if (session?.draft) {
-      await resume(ctx, uid, session.draft);
+    if (session.status === 'saving') {
+      await say(ctx, TEXT.saving);
       return;
     }
-    sessions.setStage(uid, 'verified');
-    await say(ctx, TEXT.verified, kb.regKeyboard);
-  };
-
-  const startRegistration = async (ctx: Context, uid: number): Promise<void> => {
-    if (await registry.isRegistered(uid)) {
-      sessions.setStage(uid, 'done');
-      await say(ctx, TEXT.alreadyRegistered);
+    if (allAnswered(session)) {
+      await finalize(ctx, session);
       return;
     }
-    logger.info({ userHash: hashId(uid) }, "Ro'yxatdan o'tish boshlandi");
-    await askStep(ctx, uid, flow.createDraft(config.fields));
-  };
-
-  const answerValue = async (ctx: Context, uid: number, draft: Draft, raw: string): Promise<void> => {
-    const field = draft.step as FieldKey;
-    const result = flow.validateValue(field, raw, { ...validationCtx(), region: draft.data.region });
-    if (!result.ok) {
-      await say(ctx, `⚠️ ${escapeHtml(result.error)}`);
-      await askStep(ctx, uid, draft);
-      return;
-    }
-    if (field === 'phone') await say(ctx, TEXT.phoneSaved, kb.removeKeyboard);
-    const next = flow.answer(draft, config.fields, result.value);
-    if (next.step === 'confirm') await showConfirm(ctx, uid, next);
-    else await askStep(ctx, uid, next);
-  };
-
-  const onBack = async (ctx: Context, uid: number): Promise<void> => {
-    const session = sessions.get(uid);
-    if (!session?.draft) {
-      await say(ctx, TEXT.stale);
-      return;
-    }
-    const prev = flow.goBack(session.draft);
-    if (!prev) {
-      await say(ctx, TEXT.noBack);
-      return;
-    }
-    if (session.draft.step === 'phone') await say(ctx, TEXT.backFromPhone, kb.removeKeyboard);
-    if (prev.step === 'confirm') await showConfirm(ctx, uid, prev);
-    else await askStep(ctx, uid, prev);
-  };
-
-  const onCancel = async (ctx: Context, uid: number): Promise<void> => {
-    sessions.clear(uid);
-    await say(ctx, TEXT.cancelled, kb.removeKeyboard);
+    await say(ctx, TEXT.resume);
+    await askQuestion(ctx, session);
   };
 
   const safe = async (ctx: Context, action: string, fn: () => Promise<void>): Promise<void> => {
     try {
       await fn();
     } catch (err) {
+      if (err instanceof AnswerRejected) {
+        await say(ctx, TEXT.alreadyAnswered).catch(() => undefined);
+        return;
+      }
       logger.error({ action, userHash: hashId(ctx.from?.id ?? 0), err: describeError(err) }, 'Amal bajarishda xato');
       await say(ctx, TEXT.tempError).catch(() => undefined);
     }
+  };
+
+  /** Foydalanuvchi amali: navbat + xatolarni ushlash. */
+  const userAction = (ctx: Context, action: string, fn: (uid: number) => Promise<void>) => {
+    const uid = uidOf(ctx);
+    return withLock(uid, () => safe(ctx, action, () => fn(uid)));
   };
 
   const runAdmin = async (ctx: Context, key: string): Promise<void> => {
@@ -216,7 +295,7 @@ export function createBot(deps: BotDeps): Telegraf {
         formatBotStatus({
           startedAt,
           now: now(),
-          sessions: sessions.size,
+          sessions: sessions.activeCount,
           timezone: config.timezone,
           adminCount: config.adminIds.length,
         }),
@@ -236,8 +315,8 @@ export function createBot(deps: BotDeps): Telegraf {
       return;
     }
     const stats = computeStats(rows, now(), config.timezone);
-    if (key === 'total') await say(ctx, `👥 Jami ro'yxatdan o'tganlar: <b>${stats.total}</b>`);
-    else if (key === 'today') await say(ctx, `📅 Bugun ro'yxatdan o'tganlar: <b>${stats.today}</b>`);
+    if (key === 'total') await say(ctx, `👥 Jami topshirilgan anketalar: <b>${stats.total}</b>`);
+    else if (key === 'today') await say(ctx, `📅 Bugun topshirilgan anketalar: <b>${stats.today}</b>`);
     else await say(ctx, formatStats(stats, config.googleSheetName));
   };
 
@@ -264,29 +343,24 @@ export function createBot(deps: BotDeps): Telegraf {
 
   // ---- Buyruqlar ----
   bot.start((ctx) =>
-    safe(ctx, 'start', async () => {
-      const uid = uidOf(ctx);
+    userAction(ctx, 'start', async (uid) => {
       const session = sessions.get(uid);
-      if (session?.stage === 'done') {
+      if (session && session.status !== 'awaiting_subscription') {
+        await continueSession(ctx, session);
+        return;
+      }
+      if (await registeredInSheets(uid)) {
         await say(ctx, TEXT.alreadyRegistered);
         return;
       }
-      if (session?.draft) {
-        await say(ctx, TEXT.resume, kb.resumeKeyboard);
-        return;
-      }
-      sessions.clear(uid);
+      sessions.save(session ?? newSession(uid, ctx.from.username ?? '', now().getTime()));
       await say(ctx, TEXT.welcome, kb.subscribeKeyboard(config.channels));
     }),
   );
 
-  bot.command('cancel', (ctx) => safe(ctx, 'cancel', () => onCancel(ctx, uidOf(ctx))));
+  bot.command('cancel', (ctx) => userAction(ctx, 'cancel', async () => void (await say(ctx, TEXT.noCancel))));
 
-  bot.command('help', (ctx) =>
-    safe(ctx, 'help', async () => {
-      await say(ctx, TEXT.help);
-    }),
-  );
+  bot.command('help', (ctx) => userAction(ctx, 'help', async () => void (await say(ctx, TEXT.help))));
 
   bot.command('admin', (ctx) =>
     safe(ctx, 'admin', async () => {
@@ -308,264 +382,255 @@ export function createBot(deps: BotDeps): Telegraf {
     }),
   );
 
-  // ---- Matnli xabarlar ----
+  // ---- Matnli javoblar ----
   bot.on('text', (ctx) =>
-    safe(ctx, 'text', async () => {
-      const uid = uidOf(ctx);
-      const text = ctx.message.text.trim();
-      if (text === BTN.back) return onBack(ctx, uid);
-      if (text === BTN.cancel) return onCancel(ctx, uid);
-      if (text.startsWith('/')) {
+    userAction(ctx, 'text', async (uid) => {
+      const text = ctx.message.text;
+      if (text.trim().startsWith('/')) {
         await say(ctx, TEXT.unknownCommand);
         return;
       }
       const session = sessions.get(uid);
-      if (session?.stage === 'filling' && session.draft && session.draft.step !== 'confirm') {
-        if (session.draft.step === 'gender') {
-          await say(ctx, TEXT.useButtons);
-          await askStep(ctx, uid, session.draft);
+      const q = session ? currentQuestion(session) : null;
+      if (!session || !q) {
+        if (session?.status === 'completed') await say(ctx, TEXT.alreadyRegistered);
+        else if (session?.status === 'saving') await say(ctx, TEXT.saving);
+        else if (session?.status === 'awaiting_subscription') await say(ctx, TEXT.subscribeHint, kb.subscribeKeyboard(config.channels));
+        else if (session && allAnswered(session)) await finalize(ctx, session);
+        else await say(ctx, TEXT.startHint);
+        return;
+      }
+      const { pending } = session;
+
+      const reject = async (error: string) => {
+        await say(ctx, `⚠️ ${escapeHtml(error)}`);
+      };
+
+      if (pending.awaiting === 'other_note') {
+        const note = validateNote(text);
+        const optionId = pending.selection[0];
+        if (!note.ok) return reject(note.error);
+        if (!optionId) throw new Error("Tanlangan variant yo'q");
+        await commit(ctx, session, q, { kind: 'choice', optionId, note: note.value });
+        return;
+      }
+      if (pending.awaiting === 'portfolio_url') {
+        const url = validatePortfolioUrl(text);
+        if (!url.ok) return reject(url.error);
+        await commit(ctx, session, q, { kind: 'portfolio', hasPortfolio: true, url: url.value });
+        return;
+      }
+      if (pending.awaiting === 'phone_confirm') {
+        await say(ctx, TEXT.useConfirmButton);
+        return;
+      }
+
+      switch (q.kind) {
+        case 'full_name': {
+          const r = validateFullName(text);
+          if (!r.ok) return reject(r.error);
+          await commit(ctx, session, q, { kind: 'text', value: r.value });
           return;
         }
-        return answerValue(ctx, uid, session.draft, text);
-      }
-      switch (session?.stage) {
-        case 'confirm':
-        case 'submitting':
-          await say(ctx, TEXT.useButtons);
+        case 'phone_manual': {
+          const r = normalizePhone(text);
+          if (!r.ok) return reject(r.error);
+          await commit(ctx, session, q, { kind: 'text', value: r.value });
           return;
-        case 'subscribe':
-          await say(ctx, TEXT.subscribeHint, kb.subscribeKeyboard(config.channels));
+        }
+        case 'text': {
+          const r = validateLongText(text, q.min, q.max);
+          if (!r.ok) return reject(r.error);
+          await commit(ctx, session, q, { kind: 'text', value: r.value });
           return;
-        case 'done':
-          await say(ctx, TEXT.alreadyRegistered);
+        }
+        case 'phone_contact':
+          await say(ctx, TEXT.useContactButton, kb.contactKeyboard);
           return;
         default:
-          await say(ctx, TEXT.startHint);
+          await say(ctx, TEXT.useButtons);
       }
     }),
   );
 
   // ---- Telefon kontakti ----
   bot.on('contact', (ctx) =>
-    safe(ctx, 'contact', async () => {
-      const uid = uidOf(ctx);
+    userAction(ctx, 'contact', async (uid) => {
       const session = sessions.get(uid);
-      const draft = session?.stage === 'filling' ? session.draft : null;
-      if (!draft || draft.step !== 'phone') {
+      const q = session ? currentQuestion(session) : null;
+      if (!session || q?.kind !== 'phone_contact') {
         await say(ctx, TEXT.contactNotExpected);
         return;
       }
       const contact = ctx.message.contact;
       const result = contactPhone(contact.phone_number, contact.user_id, uid);
       if (!result.ok) {
-        await say(ctx, `⚠️ ${escapeHtml(result.error)}`);
-        await askStep(ctx, uid, draft);
+        // Javob qabul qilinmagan — qayta yuborish mumkin
+        await say(ctx, `⚠️ ${escapeHtml(result.error)}`, kb.contactKeyboard);
         return;
       }
-      await answerValue(ctx, uid, draft, result.value);
+      const manual = session.answers.phone;
+      if (manual?.kind === 'text' && manual.value === result.value) {
+        await commit(ctx, session, q, { kind: 'contact', phone: result.value, matchesManual: true });
+        return;
+      }
+      // Raqamlar farq qiladi: davom etishdan oldin foydalanuvchi tasdiqlaydi
+      const waiting: UserSession = { ...session, pending: { selection: [], awaiting: 'phone_confirm', contactPhone: result.value } };
+      sessions.save(waiting);
+      await askQuestion(ctx, waiting);
     }),
   );
 
-  // ---- Matn, kontakt va tugmadan boshqa xabar turlari (rasm, stiker, ovoz va h.k.) ----
-  bot.on('message', (ctx) =>
-    safe(ctx, 'unsupported', async () => {
-      await say(ctx, TEXT.textOnly);
-    }),
-  );
+  // ---- Matn va kontaktdan boshqa xabar turlari (rasm, stiker, ovoz va h.k.) ----
+  bot.on('message', (ctx) => userAction(ctx, 'unsupported', async () => void (await say(ctx, TEXT.unsupported))));
 
   // ---- Inline tugmalar ----
   bot.action('sub:check', async (ctx) => {
     await ack(ctx);
-    await safe(ctx, 'sub:check', async () => {
-      const uid = uidOf(ctx);
-      if (await gate(ctx, uid)) await afterVerified(ctx, uid);
+    await userAction(ctx, 'sub:check', async (uid) => {
+      const session = sessions.get(uid);
+      if (session && session.status !== 'awaiting_subscription') {
+        if (session.status === 'completed' || session.status === 'saving' || (await gate(ctx, uid))) {
+          await continueSession(ctx, session);
+        }
+        return;
+      }
+      if (!(await gate(ctx, uid))) return;
+      if (await registeredInSheets(uid)) {
+        await say(ctx, TEXT.alreadyRegistered);
+        return;
+      }
+      sessions.save(session ?? newSession(uid, ctx.from?.username ?? '', now().getTime()));
+      await say(ctx, TEXT.verified, kb.startKeyboard);
     });
   });
 
   bot.action('reg:start', async (ctx) => {
     await ack(ctx);
-    await safe(ctx, 'reg:start', async () => {
-      const uid = uidOf(ctx);
-      if (await gate(ctx, uid)) await startRegistration(ctx, uid);
+    await userAction(ctx, 'reg:start', async (uid) => {
+      const session = sessions.get(uid);
+      if (session && session.status !== 'awaiting_subscription') {
+        await continueSession(ctx, session);
+        return;
+      }
+      if (!(await gate(ctx, uid))) return;
+      if (await registeredInSheets(uid)) {
+        await say(ctx, TEXT.alreadyRegistered);
+        return;
+      }
+      const started: UserSession = {
+        ...(session ?? newSession(uid, ctx.from?.username ?? '', now().getTime())),
+        status: 'in_progress',
+        currentQuestionIndex: 0,
+      };
+      sessions.save(started);
+      logger.info({ userHash: hashId(uid) }, 'Anketa boshlandi');
+      await askQuestion(ctx, started);
     });
   });
 
-  bot.action('resume:go', async (ctx) => {
+  /** Tugma joriy savolga tegishli va tanlov hali tugallanmaganmi. */
+  const activeChoice = (session: UserSession | undefined, index: number) => {
+    const q = session ? currentQuestion(session) : null;
+    if (!session || !q || session.currentQuestionIndex !== index || optionsOf(q).length === 0) return null;
+    if (session.pending.awaiting) return null;
+    return { session, q };
+  };
+
+  // Variantni tanlash yoki belgilash
+  bot.action(/^a:(\d{1,2}):(\d{1,2})$/, async (ctx) => {
+    const index = Number(ctx.match[1]);
+    const optionIndex = Number(ctx.match[2]);
+    await userAction(ctx, 'select', async (uid) => {
+      const active = activeChoice(sessions.get(uid), index);
+      const option = active ? optionsOf(active.q)[optionIndex] : undefined;
+      if (!active || !option) {
+        await ack(ctx, index < (sessions.get(uid)?.currentQuestionIndex ?? 0) ? TEXT.alreadyAnswered : TEXT.stale);
+        return;
+      }
+      const { session, q } = active;
+      const selection = q.kind === 'multi' ? toggleSelection(q, session.pending.selection, option.id) : [option.id];
+      sessions.save({ ...session, pending: { selection } });
+      await ack(ctx);
+      await editMarkup(ctx, kb.choiceKeyboard(index, q, selection));
+    });
+  });
+
+  // "➡️ Keyingi"
+  bot.action(/^n:(\d{1,2})$/, async (ctx) => {
+    const index = Number(ctx.match[1]);
+    await userAction(ctx, 'next', async (uid) => {
+      const active = activeChoice(sessions.get(uid), index);
+      if (!active) {
+        await ack(ctx, index < (sessions.get(uid)?.currentQuestionIndex ?? 0) ? TEXT.alreadyAnswered : TEXT.stale);
+        return;
+      }
+      const { session, q } = active;
+      const selection = session.pending.selection;
+      const check = validateSelection(q, selection);
+      if (!check.ok) {
+        await ack(ctx, check.error);
+        return;
+      }
+      await ack(ctx);
+      const optionId = selection[0] as string;
+      const option = optionsOf(q).find((o) => o.id === optionId);
+
+      if (q.kind === 'portfolio' && optionId === 'link') {
+        const waiting: UserSession = { ...session, pending: { selection, awaiting: 'portfolio_url' } };
+        sessions.save(waiting);
+        await editMarkup(ctx, kb.emptyInline);
+        await askQuestion(ctx, waiting);
+        return;
+      }
+      if (q.kind === 'single' && option?.other) {
+        const waiting: UserSession = { ...session, pending: { selection, awaiting: 'other_note' } };
+        sessions.save(waiting);
+        await editMarkup(ctx, kb.emptyInline);
+        await askQuestion(ctx, waiting);
+        return;
+      }
+
+      let answer: Answer;
+      if (q.kind === 'multi') answer = { kind: 'multi', optionIds: [...selection] };
+      else if (q.kind === 'portfolio') answer = { kind: 'portfolio', hasPortfolio: false };
+      else answer = { kind: 'choice', optionId };
+      await commit(ctx, session, q, answer);
+      await editMarkup(ctx, kb.emptyInline);
+    });
+  });
+
+  // Telefon raqamlari farqini tasdiqlash
+  bot.action(/^pc:(\d{1,2}):y$/, async (ctx) => {
+    const index = Number(ctx.match[1]);
+    await userAction(ctx, 'phone_confirm', async (uid) => {
+      const session = sessions.get(uid);
+      const q = session ? currentQuestion(session) : null;
+      const phone = session?.pending.contactPhone;
+      if (!session || q?.kind !== 'phone_contact' || session.currentQuestionIndex !== index || session.pending.awaiting !== 'phone_confirm' || !phone) {
+        await ack(ctx, TEXT.stale);
+        return;
+      }
+      await ack(ctx);
+      await commit(ctx, session, q, { kind: 'contact', phone, matchesManual: false });
+      await editMarkup(ctx, kb.emptyInline);
+    });
+  });
+
+  bot.action('fin:retry', async (ctx) => {
     await ack(ctx);
-    await safe(ctx, 'resume', async () => {
-      const uid = uidOf(ctx);
-      const draft = sessions.get(uid)?.draft;
-      if (!draft) {
+    await userAction(ctx, 'fin:retry', async (uid) => {
+      const session = sessions.get(uid);
+      if (!session) {
         await say(ctx, TEXT.startHint);
         return;
       }
-      if (await gate(ctx, uid)) await resume(ctx, uid, draft);
-    });
-  });
-
-  bot.action('resume:restart', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'restart', async () => {
-      sessions.clear(uidOf(ctx));
-      await say(ctx, TEXT.welcome, kb.subscribeKeyboard(config.channels));
-    });
-  });
-
-  bot.action('flow:back', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'flow:back', () => onBack(ctx, uidOf(ctx)));
-  });
-
-  bot.action('flow:cancel', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'flow:cancel', () => onCancel(ctx, uidOf(ctx)));
-  });
-
-  const answerIfStep = (field: FieldKey) => async (ctx: Context, uid: number, raw: string) => {
-    const session = sessions.get(uid);
-    if (session?.stage !== 'filling' || !session.draft || session.draft.step !== field) {
-      await say(ctx, TEXT.stale);
-      return;
-    }
-    await answerValue(ctx, uid, session.draft, raw);
-  };
-
-  bot.action(/^gender:(male|female|skip)$/, async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'gender', () => answerIfStep('gender')(ctx, uidOf(ctx), ctx.match[1]));
-  });
-
-  bot.action(/^region:(\d+)$/, async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'region', async () => {
-      const names = config.regions ? Object.keys(config.regions) : [];
-      const name = names[Number(ctx.match[1])];
-      if (name === undefined) {
-        await say(ctx, TEXT.stale);
+      if (session.status === 'in_progress' && !allAnswered(session)) {
+        await continueSession(ctx, session);
         return;
       }
-      await answerIfStep('region')(ctx, uidOf(ctx), name);
+      await finalize(ctx, session);
     });
-  });
-
-  bot.action(/^district:(\d+)$/, async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'district', async () => {
-      const uid = uidOf(ctx);
-      const region = sessions.get(uid)?.draft?.data.region;
-      const list = config.regions && region && Object.prototype.hasOwnProperty.call(config.regions, region)
-        ? config.regions[region]
-        : undefined;
-      const name = list?.[Number(ctx.match[1])];
-      if (name === undefined) {
-        await say(ctx, TEXT.stale);
-        return;
-      }
-      await answerIfStep('district')(ctx, uid, name);
-    });
-  });
-
-  bot.action('skip:additional_info', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'skip', () => answerIfStep('additional_info')(ctx, uidOf(ctx), ''));
-  });
-
-  bot.action('confirm:edit', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'confirm:edit', async () => {
-      const session = sessions.get(uidOf(ctx));
-      if (session?.stage !== 'confirm') {
-        await say(ctx, TEXT.stale);
-        return;
-      }
-      await say(ctx, TEXT.editMenu, kb.editKeyboard(config.fields));
-    });
-  });
-
-  bot.action('confirm:back', async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'confirm:back', async () => {
-      const uid = uidOf(ctx);
-      const draft = sessions.get(uid)?.draft;
-      if (!draft) {
-        await say(ctx, TEXT.stale);
-        return;
-      }
-      await showConfirm(ctx, uid, draft);
-    });
-  });
-
-  bot.action(/^edit:(\w+)$/, async (ctx) => {
-    await ack(ctx);
-    await safe(ctx, 'edit', async () => {
-      const uid = uidOf(ctx);
-      const session = sessions.get(uid);
-      const field = ctx.match[1] as FieldKey;
-      const draft = session?.stage === 'confirm' ? session.draft : null;
-      if (!draft || !config.fields.includes(field)) {
-        await say(ctx, TEXT.stale);
-        return;
-      }
-      await askStep(ctx, uid, flow.startEdit(draft, field));
-    });
-  });
-
-  bot.action('confirm:yes', async (ctx) => {
-    await ack(ctx);
-    const uid = uidOf(ctx);
-    const session = sessions.get(uid);
-    if (session?.stage === 'done') {
-      await say(ctx, TEXT.alreadyRegistered);
-      return;
-    }
-    // Ikki marta bosilsa, ikkinchi so'rov e'tiborsiz qoldiriladi
-    if (session?.stage === 'submitting') return;
-    if (!session?.draft || session.draft.step !== 'confirm') {
-      await say(ctx, TEXT.stale);
-      return;
-    }
-    const draft = session.draft;
-    const userHash = hashId(uid);
-    sessions.setStage(uid, 'submitting', draft);
-    try {
-      const invalid = flow.findInvalidField(draft, config.fields, validationCtx());
-      if (invalid) {
-        await say(ctx, TEXT.dataChanged);
-        const fixed: Draft = {
-          ...draft,
-          step: invalid,
-          history: config.fields.slice(0, config.fields.indexOf(invalid)),
-          editing: false,
-        };
-        await askStep(ctx, uid, fixed);
-        return;
-      }
-      const report = await verify(uid);
-      if (!report.subscribed) {
-        sessions.setStage(uid, 'subscribe', draft);
-        if (report.missing.length > 0) {
-          await say(ctx, TEXT.missing(report.missing.map((c) => c.name)), kb.subscribeKeyboard(config.channels));
-        } else {
-          await say(ctx, TEXT.subscriptionError, kb.retryKeyboard('sub:check'));
-        }
-        return;
-      }
-      const record = flow.buildRecord(draft, {
-        id: newRegistrationId(now()),
-        createdAt: now(),
-        userId: uid,
-        username: ctx.from?.username ?? '',
-        subscriptionVerified: true,
-      });
-      const outcome = await registry.save(record);
-      sessions.setStage(uid, 'done');
-      logger.info({ userHash, outcome }, "Ro'yxatdan o'tish yakunlandi");
-      await say(ctx, outcome === 'saved' ? TEXT.success : TEXT.alreadyRegistered);
-    } catch (err) {
-      logger.error({ userHash, err: describeError(err) }, "Ro'yxatga yozishda xato");
-      sessions.setStage(uid, 'confirm', draft);
-      await say(ctx, TEXT.saveError, kb.retryKeyboard('confirm:yes'));
-    }
   });
 
   // ---- Admin tugmalari ----
@@ -573,9 +638,11 @@ export function createBot(deps: BotDeps): Telegraf {
     await ack(ctx);
     const uid = uidOf(ctx);
     if (!isAdmin(uid)) return;
-    await safe(ctx, 'admin', () => runAdmin(ctx, ctx.match[1]));
+    await safe(ctx, 'admin', () => runAdmin(ctx, ctx.match[1] as string));
   });
+
+  // ---- Eski yoki noma'lum tugmalar (masalan, avvalgi versiyadagi "Orqaga") hech narsa qilmaydi ----
+  bot.on('callback_query', (ctx) => ack(ctx, TEXT.stale));
 
   return bot;
 }
-

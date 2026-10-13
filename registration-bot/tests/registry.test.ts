@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { RegistrationRegistry, computeStats, recentRows, toRow, type SheetsPort } from '../src/services/registry.js';
-import type { RegistrationRecord } from '../src/types/index.js';
+import {
+  LAST_COLUMN,
+  RegistrationRegistry,
+  SHEET_HEADERS,
+  columnLetter,
+  computeStats,
+  recentRows,
+  toRow,
+  type SheetsPort,
+} from '../src/services/registry.js';
+import type { RegistrationRecord } from '../src/services/questionnaire.js';
+import { sampleAnswers } from './helpers.js';
 
 function memorySheets(opts: { failNextAppend?: 'throw' | 'write-then-throw' } = {}): SheetsPort & { rows: string[][] } {
   const rows: string[][] = [];
@@ -28,14 +38,7 @@ const record = (userId: number, overrides: Partial<RegistrationRecord> = {}): Re
   createdAt: new Date('2026-10-12T09:00:00Z'),
   userId,
   username: 'ali',
-  firstName: 'Ali',
-  lastName: 'Valiyev',
-  phone: '+998901234567',
-  birthDate: '15.05.2005',
-  gender: 'male',
-  region: 'Qashqadaryo',
-  district: 'Qarshi',
-  additionalInfo: '',
+  answers: sampleAnswers(),
   subscriptionVerified: true,
   ...overrides,
 });
@@ -81,14 +84,51 @@ describe('RegistrationRegistry.save', () => {
 });
 
 describe('toRow', () => {
-  it('telefonni matn sifatida saqlaydi va formulalardan himoyalaydi', () => {
-    const row = toRow(record(1, { username: '=cmd', additionalInfo: '+1+1' }), 'Asia/Tashkent');
-    expect(row[6]).toBe('+998901234567');
-    expect(row[3]).toBe("'=cmd");
-    expect(row[11]).toBe("'+1+1");
-    expect(row[8]).toBe('Erkak');
-    expect(row[1]).toBe('2026-10-12 14:00:00');
-    expect(row).toHaveLength(14);
+  const col = (name: (typeof SHEET_HEADERS)[number]) => SHEET_HEADERS.indexOf(name);
+
+  it("barqaror ustunlar, o'qiladigan ko'p tanlov va bitta telefon ustuni", () => {
+    const row = toRow(record(1), 'Asia/Tashkent');
+    expect(row).toHaveLength(SHEET_HEADERS.length);
+    expect(SHEET_HEADERS).toHaveLength(30);
+    expect(LAST_COLUMN).toBe('AD');
+    expect(row[col('Created At')]).toBe('2026-10-12 14:00:00');
+    expect(row[col('Full Name')]).toBe('Aliyev Vali');
+    expect(row[col('Phone')]).toBe('+998901234567');
+    expect(SHEET_HEADERS.filter((h) => /phone/i.test(h) && h !== 'Telegram Phone Match')).toEqual(['Phone']);
+    expect(row[col('Program')]).toBe('Dasturiy injiniring');
+    expect(row[col('Work Field')]).toBe('Hozir ishlamayman.');
+    expect(row[col('Media Interests')]).toBe('SMM va ijtimoiy tarmoqlar.; Reels va qisqa videolar yaratish.');
+    expect(row[col('AI Tools')]).toBe('ChatGPT.; Claude.');
+    expect(row[col('Has Portfolio')]).toBe('Yo‘q');
+    expect(row[col('Portfolio URL')]).toBe('');
+    expect(row[col('Registration Status')]).toBe('Yakunlandi');
+  });
+
+  it("'Boshqa' izohi va portfolio havolasi alohida ustunlarda", () => {
+    const answers = sampleAnswers();
+    answers.occupation = { kind: 'choice', optionId: 'other', note: 'Volontyorman' };
+    answers.work_field = { kind: 'choice', optionId: 'other', note: 'Tadbirlar' };
+    answers.portfolio = { kind: 'portfolio', hasPortfolio: true, url: 'https://behance.net/ali' };
+    const row = toRow(record(1, { answers }), 'Asia/Tashkent');
+    expect(row[col('Occupation')]).toBe('Boshqa.');
+    expect(row[col('Occupation Other')]).toBe('Volontyorman');
+    expect(row[col('Work Field Other')]).toBe('Tadbirlar');
+    expect(row[col('Has Portfolio')]).toBe('Ha');
+    expect(row[col('Portfolio URL')]).toBe('https://behance.net/ali');
+  });
+
+  it('formulalardan himoyalaydi', () => {
+    const answers = sampleAnswers();
+    answers.motivation = { kind: 'text', value: '=HYPERLINK("x") bu matn formula bolmasligi kerak' };
+    const row = toRow(record(1, { username: '=cmd', answers }), 'Asia/Tashkent');
+    expect(row[col('Telegram Username')]).toBe("'=cmd");
+    expect(row[col('Motivation')]!.startsWith("'=")).toBe(true);
+  });
+});
+
+describe('columnLetter', () => {
+  it('ustun harflarini hisoblaydi', () => {
+    expect([1, 14, 26, 27, 30].map(columnLetter)).toEqual(['A', 'N', 'Z', 'AA', 'AD']);
   });
 });
 

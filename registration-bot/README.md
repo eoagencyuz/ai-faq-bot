@@ -1,14 +1,25 @@
-# KIU ro'yxatdan o'tish boti
+# KIU Media & AI shogirdlarini saralash boti
 
-Telegram bot orqali ro'yxatdan o'tish. Foydalanuvchi ikkita kanalga obuna bo'ladi, ma'lumotlarini bot orqali kiritadi va ular **Google Sheets**'ga yoziladi. Web-sayt yo'q — hamma amal Telegram ichida bajariladi.
+Qarshi xalqaro universiteti (KIU) talabalaridan **Media & AI shogirdlik dasturi** uchun anketa yig'uvchi Telegram bot. Foydalanuvchi ikkita kanalga obuna bo'ladi, 21 ta savolga bot ichida javob beradi va to'liq anketa **Google Sheets**'ga yoziladi. Web-sayt, admin panel yoki ma'lumotlar bazasi yo'q — hamma amal Telegram ichida bajariladi.
+
+## Texnologiyalar
+
+- Node.js 22, TypeScript
+- [Telegraf](https://telegraf.js.org) 4 (polling)
+- Google Sheets API v4 (`googleapis`, service account)
+- Zod (konfiguratsiya tekshiruvi), Pino (loglar)
+- Vitest (testlar — haqiqiy Telegram yoki Google'ga ulanmaydi)
 
 ## Xususiyatlar
 
-- `/start` — kanallarga majburiy obuna. Obuna Telegram API orqali **har safar server tomonida** tekshiriladi, tugma bosilishi bilan emas.
-- Ma'lumotlar bittadan so'raladi: ism, familiya, telefon (kontakt tugmasi yoki qo'lda), tug'ilgan sana, jins, viloyat, tuman, qo'shimcha ma'lumot. Har bir maydonni `.env` orqali yoqish yoki o'chirish mumkin.
-- Orqaga, bekor qilish, tahrirlash, yakuniy tasdiqlash.
-- Tugallanmagan jarayon server qayta ishga tushganda tiklanadi.
-- Takroriy ro'yxatdan o'tish yo'q: bir Telegram akkaunt uchun bitta yozuv.
+- `/start` — ikki kanalga majburiy obuna. Obuna Telegram API (`getChatMember`) orqali **server tomonida** tekshiriladi: anketani boshlashda va yakunlashda.
+- 21 ta savol, qat'iy tartibda. Har bir savolga **faqat bir marta** javob beriladi.
+- Orqaga qaytish, tahrirlash va bekor qilish **yo'q**. Faqat “➡️ Keyingi” tugmasi.
+- Telefon raqami ikki marta so'raladi: qo'lda va Telegram kontakti orqali. Faqat o'zining kontakti qabul qilinadi.
+- “Boshqa.” varianti uchun izoh majburiy. Portfolio havolasi tekshiriladi.
+- Tugallanmagan anketa server qayta ishga tushganda **shu savoldan** davom etadi.
+- Bir Telegram akkaunt uchun bitta anketa. Qayta topshirish mumkin emas.
+- Google Sheets'ga faqat to'liq anketa yoziladi. Vaqtinchalik xatoda javoblar yo'qolmaydi.
 - Admin buyruqlari: `/admin`, `/stats`.
 
 ---
@@ -18,45 +29,60 @@ Telegram bot orqali ro'yxatdan o'tish. Foydalanuvchi ikkita kanalga obuna bo'lad
 - Node.js **22** yoki yangiroq
 - Telegram akkaunt, BotFather orqali bot
 - Google akkaunt va Google Cloud loyihasi
-- VPS yoki Docker (ixtiyoriy)
+- VPS, Render yoki Docker
 
 ## 2. Telegram bot yaratish
 
 1. Telegram'da **@BotFather** ni oching va `/newbot` buyrug'ini yuboring.
-2. Bot nomi va username'ni kiriting.
+2. Bot nomi va username'ini kiriting.
 3. BotFather bergan **tokenni** nusxalang. Uni hech kimga, kodga yoki GitHub'ga yozmang.
 
-> Bu bot **alohida** bot bo'lishi kerak. Mavjud bot (masalan, @yakubovsschoolbot) bilan bitta tokenni ikkala joyda ishlatmang: ular bir-biriga xalaqit beradi.
+> Bu bot **alohida** bot bo'lishi kerak. Boshqa bot (masalan, FAQ bot) bilan bitta tokenni ikki joyda ishlatmang.
 
 ## 3. Kanallarni tayyorlash va botni admin qilish
 
 Obunani tekshirish uchun bot **ikkala kanalda ham administrator** bo'lishi shart.
 
-1. Ikkala kanal uchun ochiq (public) kanal username'ini belgilang, masalan `@kanal_bir`. Havola `https://t.me/kanal_bir` bo'ladi.
-2. Kanal sozlamalari → **Administrators** → **Add Administrator** → botni tanlang.
-3. Kerakli huquq: kamida **"Ko'rish"** (oddiy a'zolikni ko'rish). Xabar yuborish huquqi shart emas.
+1. Kanal sozlamalari → **Administrators** → **Add Administrator** → botni tanlang. Xabar yuborish huquqi shart emas.
+2. Har bir kanal uchun `.env` ga yozing:
+   - `CHANNEL_N_ID` — ochiq kanal uchun `@username`, yopiq kanal uchun `-100...` ko'rinishidagi ID.
+   - `CHANNEL_N_URL` — foydalanuvchi bosadigan havola (`https://t.me/...` yoki invite havola `https://t.me/+...`).
+   - `CHANNEL_N_NAME` — tugmada chiqadigan nom.
 
-**Yopiq (private) kanal bo'lsa:** username bo'lmaydi. U holda kanal ID'sini oling (`-100...` ko'rinishida). Buning uchun kanalga vaqtincha **@RawDataBot** ni qo'shib, u ko'rsatgan `chat.id` ni oling va botni chiqarib tashlang. Havola sifatida kanalning invite havolasini (`https://t.me/+...`) yozing. Eslatma: havola `https://t.me/` bilan boshlanishi kerak, aks holda konfiguratsiya tekshiruvi rad etadi.
+**Kanal ID'sini olish:** kanalga vaqtincha **@RawDataBot** ni qo'shing, u ko'rsatgan `chat.id` ni oling va botni chiqarib tashlang.
 
-**Kanal ID'sini tekshirish:** bot kanalda admin bo'lsa, `getChatMember` ishlaydi. Admin bo'lmasa, xato "Bad Request: chat not found" yoki "not enough rights" chiqadi va bot foydalanuvchini obuna bo'lmagan deb emas, **vaqtinchalik xato** deb hisoblaydi.
+> ⚠️ **To'ldirilishi kerak:** ikkinchi kanalning haqiqiy havolasi (`CHANNEL_2_URL`). Kodda taxminiy qiymat yo'q. Kanal ochiq bo'lsa `https://t.me/<username>`, yopiq bo'lsa kanal sozlamalaridagi invite havola.
+
+Bot kanalda admin bo'lmasa, Telegram "chat not found" yoki "not enough rights" xatosini beradi. Bot bunday holatda foydalanuvchini "obuna bo'lmagan" deb emas, **vaqtinchalik xato** deb ko'rsatadi va "🔁 Qayta urinish" tugmasini beradi.
 
 ## 4. Google Sheets va service account
 
-1. [console.cloud.google.com](https://console.cloud.google.com) da yangi loyiha yarating.
+1. [console.cloud.google.com](https://console.cloud.google.com) da loyiha yarating (yoki mavjudini oching).
 2. **APIs & Services → Library** → **Google Sheets API** ni yoqing.
 3. **APIs & Services → Credentials → Create credentials → Service account**. Nom bering va yarating.
-4. Yaratilgan service account'ni oching → **Keys → Add key → Create new key → JSON**. Fayl yuklanadi.
-5. JSON ichidan ikki qiymatni oling:
-   - `client_email` → `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-   - `private_key` → `GOOGLE_PRIVATE_KEY` (qatorlar `\n` ko'rinishida qolsa ham bo'ladi)
-6. Google Sheets'da yangi jadval yarating. Brauzer manzilidagi `/d/` va `/edit` orasidagi uzun ID → `GOOGLE_SPREADSHEET_ID`.
-7. Jadvalni **Share** qiling. `client_email` ni **Editor** (muharrir) huquqi bilan qo'shing.
+4. Service account → **Keys → Add key → Create new key → JSON**. Fayl yuklanadi. **Uni Git'ga qo'shmang.**
+5. Kalitni `.env` ga kiriting (ikki usuldan biri):
+   - **Osonroq:** `GOOGLE_SERVICE_ACCOUNT_JSON` — JSON faylning butun mazmuni (`{` dan `}` gacha).
+   - Yoki alohida: `client_email` → `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `private_key` → `GOOGLE_PRIVATE_KEY`.
+6. Jadval ID'si: brauzer manzilidagi `/d/` va `/edit` orasidagi uzun qism → `GOOGLE_SPREADSHEET_ID`.
+7. Jadvalni **Share** qiling: `client_email` ni **Editor** huquqi bilan qo'shing.
 
-**Osonroq usul:** `GOOGLE_SERVICE_ACCOUNT_EMAIL` va `GOOGLE_PRIVATE_KEY` o'rniga bitta o'zgaruvchi `GOOGLE_SERVICE_ACCOUNT_JSON` ga JSON faylning **butun mazmunini** (`{` dan `}` gacha) qo'yish mumkin. Bu private key'ni qo'lda ajratib olishda yuz beradigan xatolardan qutqaradi. Ikkala usul ham bir vaqtda berilsa, JSON ishlatiladi.
+### Varaq va ustunlar
 
-Bot birinchi ishga tushganda varaq (`GOOGLE_SHEET_NAME`, standart `Registrations`) yo'q bo'lsa yaratadi va 14 ta sarlavhani yozadi. Sarlavhalar boshqacha bo'lsa, bot ishga tushmaydi — ma'lumot noto'g'ri ustunga tushib qolmasligi uchun.
+Anketalar mavjud **"SMM"** jadval fayli ichidagi alohida **`Media_AI`** varag'iga yoziladi (`GOOGLE_SHEET_NAME`, standart `Media_AI`). Eski varaqlarga tegilmaydi.
 
-Ustunlar tartibi: `ID`, `Created At`, `Telegram User ID`, `Telegram Username`, `First Name`, `Last Name`, `Phone`, `Birth Date`, `Gender`, `Region`, `District`, `Additional Info`, `Subscription Verified`, `Registration Status`.
+- Varaq yo'q bo'lsa, bot uni o'zi yaratadi va sarlavhalarni yozadi.
+- Sarlavhalar mos kelmasa, bot **ishga tushmaydi** va hech narsani o'chirmaydi yoki ustiga yozmaydi. Bunday holatda yangi varaq nomini bering.
+
+Ustunlar (30 ta, A–AD):
+
+`ID`, `Created At`, `Telegram User ID`, `Telegram Username`, `Full Name`, `Phone`, `Telegram Phone Match`, `Program`, `Course`, `Occupation`, `Occupation Other`, `Work Field`, `Work Field Other`, `Free Time`, `Weekly Hours`, `Start Time`, `Motivation`, `Media Interests`, `Media Experience`, `Has Portfolio`, `Portfolio URL`, `AI Usage`, `AI Tools`, `AI Goals`, `Devices`, `Three Month Goal`, `Ready For Tasks`, `Work Style`, `Subscription Verified`, `Registration Status`
+
+- `Created At` — Asia/Tashkent vaqti, `YYYY-MM-DD HH:mm:ss`.
+- `Phone` — qo'lda kiritilgan raqam (`+998...`). Telefon uchun yagona ustun.
+- `Telegram Phone Match` — Telegram kontakti bilan mos kelsa `Ha`, aks holda `Yo‘q (+998...)`.
+- Ko'p tanlovli javoblar `; ` bilan ajratiladi, masalan `ChatGPT.; Claude.`
+- “Boshqa.” izohlari va portfolio havolasi alohida ustunlarda.
 
 ## 5. Konfiguratsiya
 
@@ -64,78 +90,135 @@ Ustunlar tartibi: `ID`, `Created At`, `Telegram User ID`, `Telegram Username`, `
 cp .env.example .env
 ```
 
-`.env` faylini to'ldiring. Muhim qiymatlar:
-
 | O'zgaruvchi | Majburiy | Tavsif |
 |---|---|---|
 | `BOT_TOKEN` | ha | BotFather tokeni |
 | `CHANNEL_1_ID`, `CHANNEL_2_ID` | ha | `@username` yoki `-100...` ID |
 | `CHANNEL_1_URL`, `CHANNEL_2_URL` | ha | `https://t.me/...` havolalari |
 | `CHANNEL_1_NAME`, `CHANNEL_2_NAME` | yo'q | Tugmalarda chiqadigan nom |
-| `GOOGLE_SPREADSHEET_ID` | ha | Jadval ID'si |
-| `GOOGLE_SHEET_NAME` | yo'q | Varaq nomi, standart `Registrations` |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | ha | Service account emaili |
-| `GOOGLE_PRIVATE_KEY` | ha | Service account private key |
+| `GOOGLE_SPREADSHEET_ID` | ha | Jadval ID'si ("SMM" fayli) |
+| `GOOGLE_SHEET_NAME` | yo'q | Varaq nomi, standart `Media_AI` |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | ha* | Service account JSON'i (butun mazmuni) |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | ha* | yoki alohida: service account emaili |
+| `GOOGLE_PRIVATE_KEY` | ha* | yoki alohida: private key |
 | `ADMIN_IDS` | ha | Admin Telegram ID lari, vergul bilan: `111,222` |
 | `TIMEZONE` | yo'q | Standart `Asia/Tashkent` |
-| `SESSION_TTL_HOURS` | yo'q | Tugallanmagan jarayon necha soat saqlanadi, standart 24 |
+| `SESSION_TTL_HOURS` | yo'q | Tugallanmagan anketa necha soat faolsiz saqlanadi, standart 24 |
 | `SESSION_FILE` | yo'q | Sessiya fayli, standart `./data/sessions.json` |
-| `REGISTRATION_FIELDS` | yo'q | Yoqilgan maydonlar. `first_name` va `phone` doim yoqilgan |
-| `REGIONS_JSON` | yo'q | Viloyat va tumanlar ro'yxati. Bo'sh bo'lsa, matn yoziladi |
+| `PORT` | yo'q | Render kabi hostinglar uchun health-check porti |
+
+\* `GOOGLE_SERVICE_ACCOUNT_JSON` **yoki** `GOOGLE_SERVICE_ACCOUNT_EMAIL` + `GOOGLE_PRIVATE_KEY`.
 
 Noto'g'ri yoki yetishmayotgan qiymat bo'lsa, bot ishga tushmaydi va qaysi o'zgaruvchi noto'g'ri ekanini aytadi. Qiymatlarning o'zi logga yozilmaydi.
 
-### Viloyat va tumanlar (ixtiyoriy)
-
-```env
-REGIONS_JSON={"Qashqadaryo":["Qarshi","Shahrisabz","Kitob"],"Toshkent":["Yunusobod","Chilonzor"]}
-```
-
-## 6. O'rnatish va ishga tushirish
+## 6. O'rnatish, test va ishga tushirish
 
 ```bash
 npm ci              # bog'liqliklarni o'rnatish
 npm run typecheck   # tiplarni tekshirish
-npm test            # testlar (haqiqiy Telegram yoki Google talab qilmaydi)
+npm test            # testlar (mock'lar bilan, tarmoqsiz)
 npm run build       # dist/ ga kompilyatsiya
 npm start           # ishga tushirish (polling)
 ```
 
-Lokal sinash uchun: `npm run dev`.
+Lokal ishlab chiqish uchun: `npm run dev`.
 
-## 7. Admin buyruqlari
+## 7. Anketa savollari
 
-- `/admin` — admin menyusi: statistika, jami, bugungi, oxirgi ro'yxatdan o'tganlar, Google Sheets holati, bot holati.
-- `/stats` — to'liq statistika: jami, bugun, 7 kun, 30 kun.
+| № | Savol | Javob turi |
+|---|---|---|
+| 1 | Ism-familiyangizni to‘liq kiriting. | Matn: ism va familiya, faqat harflar |
+| 2 | Siz bilan bog‘lanishimiz uchun telefon raqamingizni kiriting. | Matn: `+998901234567` formati |
+| 3 | Telefon raqamingizni Telegram orqali yuboring. | “📱 Raqamni ulashish” tugmasi, faqat o'z kontakti |
+| 4 | Qarshi xalqaro universitetida qaysi ta’lim yo‘nalishida tahsil olasiz? | Bitta tanlov (12 yo'nalish) |
+| 5 | Nechanchi kursda tahsil olasiz? | Bitta tanlov |
+| 6 | Hozirgi vaqtda asosan nima bilan bandsiz? | Bitta tanlov, “Boshqa.” — izoh bilan |
+| 7 | Agar ishlayotgan bo‘lsangiz, qaysi sohada faoliyat yuritasiz? | Bitta tanlov, “Boshqa.” — izoh bilan |
+| 8 | Odatda qaysi vaqtda bo‘sh bo‘lasiz? | Bitta tanlov |
+| 9 | Shogirdlik uchun haftasiga qancha vaqt ajrata olasiz? | Bitta tanlov |
+| 10 | Shogirdlik dasturida qachondan boshlab qatnasha olasiz? | Bitta tanlov |
+| 11 | Nima uchun Media & AI yo‘nalishida shogird bo‘lishni xohlaysiz…? | Matn, 30–1000 belgi |
+| 12 | Qaysi media yo‘nalishlari sizni ko‘proq qiziqtiradi? | Ko'p tanlov, kamida 1 ta |
+| 13 | Media yoki kontent yaratish bo‘yicha tajribangiz qanday? | Bitta tanlov |
+| 14 | Avval yaratgan ishlaringiz, portfolio yoki loyihalaringiz havolasini yuboring. | “Havola yuboraman” (keyin havola) yoki “Portfolio yo‘q” |
+| 15 | Sun’iy intellekt vositalaridan qanday maqsadlarda foydalangansiz? | Bitta tanlov |
+| 16 | Qaysi AI vositalaridan foydalangansiz yoki ular bilan tanishsiz? | Ko'p tanlov; “Hozircha hech qaysisini bilmayman” boshqalari bilan birga tanlanmaydi |
+| 17 | AI yordamida qaysi ko‘nikmalarni rivojlantirmoqchisiz? | Ko'p tanlov; “Barchasini bosqichma-bosqich o‘rganish” boshqalari bilan birga tanlanmaydi |
+| 18 | Amaliy topshiriqlarni bajarish va o‘rganish uchun qanday qurilmalardan foydalana olasiz? | Bitta tanlov |
+| 19 | Ushbu dastur davomida keyingi 3 oy ichida qanday aniq natijaga erishmoqchisiz? | Matn, 20–1000 belgi |
+| 20 | Belgilangan muddatlarda amaliy topshiriqlarni bajarish… tayyormisiz? | Bitta tanlov (ikkala javob ham qabul qilinadi) |
+| 21 | Siz uchun qaysi ishlash uslubi qulayroq? | Bitta tanlov |
 
-Admin bo'lmagan foydalanuvchi bu buyruqlarni yozsa, "Noma'lum buyruq" javobini oladi. Admin ekanligi faqat server tomonida, `ADMIN_IDS` bo'yicha tekshiriladi.
+Savollar va variantlar matni `src/services/questionnaire.ts` faylida.
 
-## 8. VPS'ga deploy qilish
+## 8. Anketa qoidalari
 
-### Variant A: PM2
+- Har bir savolga **bir marta** javob beriladi. Qabul qilingan javobni o'zgartirib bo'lmaydi.
+- **Orqaga**, **tahrirlash** va **bekor qilish** tugmalari yo'q. `/start` anketani qaytadan boshlamaydi — joriy savolni qayta ko'rsatadi.
+- Variantli savollarda: variant tanlanadi (ko'p tanlovda belgilanadi), keyin “➡️ Keyingi” bosiladi. “Keyingi” faqat tanlov to'g'ri bo'lganda chiqadi.
+- Matnli savollarda javob tekshiruvdan o'tishi bilan qabul qilinadi.
+- “Boshqa.” tanlansa, izoh yozilmaguncha keyingi savolga o'tilmaydi. Izoh va asosiy javob birga saqlanadi.
+- 6-savolda “Faqat universitetda tahsil olaman.” tanlansa, 7-savol so'ralmaydi va avtomatik “Hozir ishlamayman.” deb yoziladi.
+- Telefon: kontakt boshqa odamniki bo'lsa, rad etiladi va qayta yuborish mumkin. Kontakt raqami qo'lda kiritilgan raqamdan farq qilsa, bot ikkala raqamni ko'rsatadi va “✅ Tasdiqlayman” tugmasisiz davom etmaydi.
+- Eski xabarlardagi tugmalar ishlamaydi (“Bu savolga javob berib bo‘lingan.”).
+- Bir vaqtda kelgan xabarlar navbat bilan bajariladi: birinchi to'g'ri javob qabul qilinadi.
+- Javob avval diskdagi sessiyaga yoziladi, keyin keyingi savol beriladi. Yozib bo'lmasa, javob qabul qilinmagan hisoblanadi va qayta yuborish so'raladi.
+
+### Yakunlash
+
+21-savolga javob berilgach, bot:
+
+1. Barcha javoblarni server tomonida qayta tekshiradi;
+2. Majburiy maydonlar to'liqligini tekshiradi;
+3. Foydalanuvchi avval anketa topshirmaganini tekshiradi (Telegram ID bo'yicha);
+4. Ikkala kanalga obunani qayta tekshiradi;
+5. Google Sheets'ga yozadi;
+6. Faqat shundan keyin anketani yakunlangan deb belgilaydi;
+7. Muvaffaqiyat xabarini yuboradi.
+
+Sheets vaqtincha ishlamasa, javoblar saqlanib qoladi va “🔁 Qayta urinish” tugmasi chiqadi. Qayta urinish dublikat yaratmaydi.
+
+## 9. Admin buyruqlari
+
+- `/admin` — admin menyusi: statistika, jami, bugungi, oxirgi anketalar, Google Sheets holati, bot holati.
+- `/stats` — statistika: jami, bugun, 7 kun, 30 kun (Asia/Tashkent bo'yicha).
+
+Oxirgi anketalar ro'yxatida telefon yashirilgan holda ko'rsatiladi (`+99890*****67`). Admin bo'lmagan foydalanuvchi bu buyruqlarni yozsa, “Noma’lum buyruq” javobini oladi. Admin ekanligi faqat server tomonida, `ADMIN_IDS` bo'yicha tekshiriladi.
+
+## 10. Deploy
+
+### Render
+
+Render web servisi HTTP portni tinglashi kerak. `PORT` ni Render o'zi beradi; bot shu portda `ok` javobini qaytaradi va uxlab qolmaslik uchun o'z manziliga vaqti-vaqti bilan murojaat qiladi.
+
+1. **New → Web Service** → shu repozitoriya.
+2. **Root Directory:** `registration-bot`
+3. **Build Command:** `npm ci && npm run build`
+4. **Start Command:** `npm start`
+5. **Environment:** `.env.example` dagi qiymatlar, `GOOGLE_SHEET_NAME=Media_AI`, `NODE_VERSION=22`.
+6. Logs'da `Bot ishga tushdi (polling)` chiqishi kerak.
+
+> Bepul tarifda disk vaqtinchalik: deploy paytida `data/sessions.json` o'chadi va **tugallanmagan** anketalar yo'qoladi. Yakunlangan anketalar Google Sheets'da qoladi va qayta topshirib bo'lmaydi. Tugallanmagan anketalarni saqlash muhim bo'lsa, persistent disk (`/app/data`) ulang yoki VPS ishlating.
+
+### VPS (PM2)
 
 ```bash
 npm i -g pm2
-cd /opt/kiu-registration-bot && npm ci && npm run build
-pm2 start dist/index.js --name kiu-registration-bot --time
+cd /opt/kiu-media-ai-bot && npm ci && npm run build
+pm2 start dist/index.js --name kiu-media-ai-bot --time
 pm2 save && pm2 startup
 ```
 
-`pm2 logs kiu-registration-bot` bilan loglarni ko'rasiz. Qayta ishga tushirish: `pm2 restart kiu-registration-bot`.
-
-### Variant B: systemd
-
-`/etc/systemd/system/kiu-registration-bot.service`:
+### VPS (systemd)
 
 ```ini
 [Unit]
-Description=KIU registration bot
+Description=KIU Media & AI bot
 After=network-online.target
-Wants=network-online.target
 
 [Service]
-WorkingDirectory=/opt/kiu-registration-bot
-EnvironmentFile=/opt/kiu-registration-bot/.env
+WorkingDirectory=/opt/kiu-media-ai-bot
+EnvironmentFile=/opt/kiu-media-ai-bot/.env
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=5
@@ -145,77 +228,46 @@ User=botuser
 WantedBy=multi-user.target
 ```
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now kiu-registration-bot
-journalctl -u kiu-registration-bot -f
-```
-
-`Restart=always` yoki PM2 vaqtinchalik xatodan keyin botni qaytaradi. Konfiguratsiya xatosi bo'lsa, bot har bir urinishda to'xtaydi va loglarda sababini yozadi. `.env` ni tuzatgach, servis o'zi ishga tushadi (yoki `restart` qiling).
-
-### Variant D: Render (bepul tarif)
-
-Render'ning web servisi HTTP portni tinglashi kerak, shuning uchun `PORT` o'zgaruvchisini yoqing. Render uni o'zi beradi. Bot shu portda oddiy `ok` javobini qaytaradi va har 10 daqiqada o'z manziliga murojaat qiladi, shunda servis uxlab qolmaydi.
-
-1. **New → Web Service** → shu GitHub repozitoriyasini tanlang, branch: `main`.
-2. **Root Directory:** `registration-bot`
-3. **Build Command:** `npm ci && npm run build`
-4. **Start Command:** `npm start`
-5. **Environment:** `.env.example` dagi qiymatlar, shuningdek `NODE_VERSION=22`.
-6. Deploydan keyin Logs'da `Bot ishga tushdi (polling)` yozuvi chiqishi kerak.
-
-Cheklovlar:
-- Bepul tarifda disk vaqtinchalik. Har deployda `data/sessions.json` o'chadi va tugallanmagan jarayonlar yo'qoladi. Yakunlangan ro'yxatdan o'tishlar Google Sheets'da saqlanadi.
-- Bepul tarifda oylik soat limiti bor. Bir nechta doimiy servis ishlatilsa, u oy oxirigacha yetmasligi mumkin. Doimiy ishlashi muhim bo'lsa, VPS yoki pullik tarifni tanlang.
-- Mavjud Python bot ham Render'da ishlayotgan bo'lsa, bu **alohida servis** bo'lishi va **boshqa bot tokeni** ishlatishi kerak.
-
-### Variant C: Docker
+### Docker
 
 ```bash
-docker build -t kiu-registration-bot .
-docker run -d --name kiu-reg --restart unless-stopped \
-  --env-file .env -v kiu-reg-data:/app/data kiu-registration-bot
+docker build -t kiu-media-ai-bot .
+docker run -d --name kiu-media-ai --restart unless-stopped \
+  --env-file .env -v kiu-media-ai-data:/app/data kiu-media-ai-bot
 ```
 
-`/app/data` volume'da saqlanadi: sessiyalar va instance qulfi shu yerda. Volume'ni o'chirmang.
+`/app/data` volume'ida sessiyalar va instance qulfi saqlanadi.
 
-## 9. Ishonchlilik va xavfsizlik
+## 11. Ishonchlilik va xavfsizlik
 
-- **Bitta instance.** Polling rejimida `data/bot.lock` fayli ikkinchi nusxani to'xtatadi. Ikki server bitta tokenda ishlamasin.
-- **Dublikatdan himoya.** Saqlashdan oldin jadvalda shu Telegram ID bor-yo'qligi tekshiriladi. Yozish noaniq xato bersa, qator aslida yozilganmi-yo'qmi tekshiriladi va qayta qo'shilmaydi.
-- **Qayta urinish.** Faqat o'qish va sozlash chaqiruvlari qayta uriniladi (429 va 5xx). Yozish qayta urinilmaydi, shunda dublikat chiqmaydi.
-- **Formula himoyasi.** Matnlar `=`, `+`, `-`, `@` bilan boshlansa, Sheets ularni formula sifatida bajarmasligi uchun oldiga `'` qo'yiladi. Telefon `RAW` rejimida matn sifatida yoziladi.
-- **Sirlar.** Token va private key loglarda `[REDACTED]` bilan almashtiriladi. Xato matnida ham.
-- **Sessiya fayli.** `data/sessions.json` shaxsiy ma'lumot saqlaydi. Fayl huquqi `600`. Muddati o'tgan jarayonlar `SESSION_TTL_HOURS` dan keyin o'chiriladi.
-- **Spam.** Foydalanuvchi 10 soniyada 20 tadan ortiq yangilanish yubora olmaydi. 1000 belgidan uzun xabar rad etiladi.
-- **Maxfiylik.** Foydalanuvchi `/start` da ma'lumot nima maqsadda yig'ilishini ko'radi. Admin statistikada telefonning faqat oxirgi 4 raqamini ko'radi.
+- **Bitta instance.** `data/bot.lock` fayli ikkinchi nusxani to'xtatadi. Bir token bilan ikki server ishlamasin.
+- **Dublikatdan himoya.** Yozishdan oldin Telegram ID bo'yicha tekshiriladi. Yozish noaniq xato bersa, qator yozilganmi-yo'qmi qayta tekshiriladi. Yozish (append) qayta urinilmaydi — faqat o'qish (429/5xx).
+- **Formula himoyasi.** Ma'lumot `RAW` rejimida yoziladi; `=`, `+`, `-`, `@` bilan boshlanuvchi matnlar oldiga `'` qo'yiladi.
+- **Sirlar.** Token va kalitlar kodda yo'q, faqat `.env`/hosting sozlamalarida. `.env` va JSON kalit fayllari Git'ga qo'shilmaydi. Loglarda sirlar `[REDACTED]` bilan almashtiriladi.
+- **Shaxsiy ma'lumot.** Telefon raqamlari logga yozilmaydi; foydalanuvchi ID'si xeshlanadi. Ma'lumotlar faqat anketani ko'rib chiqish va bog'lanish uchun ishlatiladi.
+- **Sessiya fayli.** `data/sessions.json` — atomik yoziladi (tmp + rename), huquqi `600`.
+- **HTML.** Foydalanuvchi matnlari xabarlarda escape qilinadi. Tugma ma'lumotlari va foydalanuvchi ID'si server tomonida tekshiriladi.
+- **Spam.** Foydalanuvchi 10 soniyada 30 tadan ortiq yangilanish yubora olmaydi. 4000 belgidan uzun xabar rad etiladi.
 
-## 10. Ma'lumotlarni tekshirish
-
-Jadvalda har bir yangi ro'yxatdan o'tgan odam uchun qator paydo bo'ladi. `Subscription Verified` ustuni `Ha`, `Registration Status` — `Yakunlandi` bo'ladi.
-
-Muammo bo'lsa, loglarni tekshiring:
+## 12. Muammolarni hal qilish
 
 - `Obuna tekshiruvi xatosi` — botni kanalga admin qiling yoki kanal ID'sini tekshiring.
-- `GOOGLE_PRIVATE_KEY o'qib bo'lmadi` yoki `DECODER routines::unsupported` — kalit noto'g'ri nusxalangan (kesilgan, qo'shtirnoq bilan, satrlari buzilgan). `GOOGLE_SERVICE_ACCOUNT_JSON` usulidan foydalaning.
+- `GOOGLE_PRIVATE_KEY o'qib bo'lmadi` / `DECODER routines::unsupported` — kalit noto'g'ri nusxalangan. `GOOGLE_SERVICE_ACCOUNT_JSON` usulidan foydalaning.
 - `403 The caller does not have permission` — jadval service account emailiga **Editor** huquqi bilan ulashilmagan yoki `GOOGLE_SPREADSHEET_ID` boshqa faylniki.
-- `Google Sheets'ga ulanib bo'lmadi` — service account emaili jadvalga ulanganmi, Sheets API yoqilganmi.
-- `Ro'yxatga yozishda xato` — foydalanuvchiga "🔁 Qayta urinish" tugmasi ko'rsatiladi. Ma'lumot yo'qolmaydi.
+- `varag'ining N-ustun sarlavhasi mos emas` — varaqda boshqa sarlavhalar bor. Yangi `GOOGLE_SHEET_NAME` bering.
+- `Anketani saqlashda xato` — foydalanuvchiga “🔁 Qayta urinish” tugmasi ko'rsatiladi, javoblar yo'qolmaydi.
 
-## 11. Ma'lum cheklovlar
+## 13. Cheklovlar
 
-- Dublikat tekshiruvi jadvalni o'qiydi. Bir necha ming yozuvgacha yaxshi ishlaydi. Undan ko'p bo'lsa, Google Sheets o'rniga haqiqiy ma'lumotlar bazasiga o'tish kerak.
-- Sessiyalar bitta fayl orqali saqlanadi, Google Sheets'da "Sessions" varag'i ishlatilmaydi. Shu sababli bot faqat bitta serverda ishlashi kerak.
-- Veb-forma yo'q, admin panel ham faqat Telegram ichida.
-- Viloyat va tuman ro'yxatlari `REGIONS_JSON` orqali boshqariladi: o'zgartirish uchun botni qayta ishga tushirish kerak.
+- Dublikat tekshiruvi varaqni o'qiydi: bir necha ming yozuvgacha yaxshi ishlaydi.
+- Sessiyalar bitta faylda — bot bitta serverda ishlashi kerak.
 - Telefon raqami faqat O'zbekiston formatida (`+998`) qabul qilinadi.
+- Avvalgi ro'yxatdan o'tish versiyasidagi tugallanmagan sessiyalar yangi anketaga o'tkazilmaydi.
 
-## 12. Tokenlarni almashtirish
+## 14. Tokenlarni almashtirish
 
-Token sizib ketgan bo'lsa:
+Token yoki kalit sizib ketgan bo'lsa:
 
-1. @BotFather → `/mybots` → bot → **API Token** → **Revoke current token**.
-2. Yangi tokenni `.env` ga yozing.
-3. Jarayonni qayta ishga tushiring (`pm2 restart` yoki `systemctl restart`).
-
-Google service account kalitini ham xuddi shunday: eskisini o'chirib, yangi JSON kalit yarating va `.env` ga yozing.
+1. @BotFather → `/mybots` → bot → **API Token** → **Revoke current token**, yangi tokenni `.env` ga yozing.
+2. Google Cloud → service account → **Keys**: eski kalitni o'chiring, yangi JSON kalit yarating va `.env` ga yozing.
+3. Botni qayta ishga tushiring.
