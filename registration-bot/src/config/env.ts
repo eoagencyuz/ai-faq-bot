@@ -1,3 +1,4 @@
+import { createPrivateKey } from 'node:crypto';
 import { z } from 'zod';
 import { FIELD_KEYS, REQUIRED_FIELDS, type Config, type FieldKey, type Regions } from '../types/index.js';
 import { isValidTimeZone } from '../utils/time.js';
@@ -12,6 +13,10 @@ const channelUrlSchema = z
   .string()
   .regex(/^https:\/\/t\.me\/[\w+/-]+$/, "https://t.me/... ko'rinishidagi havola bo'lishi kerak");
 
+function emptyAsUndefined<T extends z.ZodTypeAny>(schema: T) {
+  return z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), schema.optional());
+}
+
 const schema = z.object({
   BOT_TOKEN: z
     .string()
@@ -24,8 +29,10 @@ const schema = z.object({
   CHANNEL_2_NAME: z.string().trim().min(1).max(40).default('2-kanal'),
   GOOGLE_SPREADSHEET_ID: z.string().min(20, "GOOGLE_SPREADSHEET_ID noto'g'ri"),
   GOOGLE_SHEET_NAME: z.string().trim().min(1).max(100).default('Registrations'),
-  GOOGLE_SERVICE_ACCOUNT_EMAIL: z.string().email("GOOGLE_SERVICE_ACCOUNT_EMAIL noto'g'ri"),
-  GOOGLE_PRIVATE_KEY: z.string().min(100, "GOOGLE_PRIVATE_KEY to'liq kiritilmagan"),
+  // Ikki usul: alohida (EMAIL + PRIVATE_KEY) yoki butun service account JSON'i (GOOGLE_SERVICE_ACCOUNT_JSON)
+  GOOGLE_SERVICE_ACCOUNT_EMAIL: emptyAsUndefined(z.string().email("GOOGLE_SERVICE_ACCOUNT_EMAIL noto'g'ri")),
+  GOOGLE_PRIVATE_KEY: emptyAsUndefined(z.string()),
+  GOOGLE_SERVICE_ACCOUNT_JSON: emptyAsUndefined(z.string()),
   ADMIN_IDS: z.string().min(1, "ADMIN_IDS kamida bitta Telegram ID bo'lishi kerak"),
   TIMEZONE: z.string().default('Asia/Tashkent'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
@@ -35,6 +42,55 @@ const schema = z.object({
   REGIONS_JSON: z.string().optional(),
   PORT: z.coerce.number().int().min(1).max(65535).optional(),
 });
+
+/** Render va boshqa hostinglarda kalit turlicha kiritilishi mumkin: \n belgilari, qo'shtirnoq, bo'sh joylar. */
+export function normalizePrivateKey(raw: string): string {
+  let key = raw.trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+  return key.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
+}
+
+/** Kalit qiymatini ko'rsatmasdan tekshiradi. Muammo bo'lsa, xabar qaytaradi. */
+export function checkPrivateKey(key: string): string | null {
+  if (!key.includes('-----BEGIN PRIVATE KEY-----') || !key.includes('-----END PRIVATE KEY-----')) {
+    return "GOOGLE_PRIVATE_KEY '-----BEGIN PRIVATE KEY-----' bilan boshlanib, '-----END PRIVATE KEY-----' bilan tugashi kerak";
+  }
+  try {
+    createPrivateKey(key);
+  } catch {
+    return "GOOGLE_PRIVATE_KEY o'qib bo'lmadi: kalit to'liq va o'zgartirilmagan holda nusxalanganini tekshiring (qo'shtirnoqsiz, boshidan oxirigacha)";
+  }
+  return null;
+}
+
+function resolveGoogleCredentials(
+  e: { GOOGLE_SERVICE_ACCOUNT_EMAIL?: string; GOOGLE_PRIVATE_KEY?: string; GOOGLE_SERVICE_ACCOUNT_JSON?: string },
+  errors: string[],
+): { email: string; key: string } {
+  let email = e.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  let key = e.GOOGLE_PRIVATE_KEY;
+  if (e.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const json = JSON.parse(e.GOOGLE_SERVICE_ACCOUNT_JSON) as { client_email?: unknown; private_key?: unknown };
+      email = typeof json.client_email === 'string' ? json.client_email : undefined;
+      key = typeof json.private_key === 'string' ? json.private_key : undefined;
+      if (!email || !key) errors.push("GOOGLE_SERVICE_ACCOUNT_JSON ichida client_email yoki private_key yo'q");
+    } catch {
+      errors.push("GOOGLE_SERVICE_ACCOUNT_JSON to'g'ri JSON emas (faylning butun mazmuni kiritilishi kerak)");
+    }
+  } else {
+    if (!email) errors.push("GOOGLE_SERVICE_ACCOUNT_EMAIL kerak (yoki GOOGLE_SERVICE_ACCOUNT_JSON)");
+    if (!key) errors.push("GOOGLE_PRIVATE_KEY kerak (yoki GOOGLE_SERVICE_ACCOUNT_JSON)");
+  }
+  const normalized = normalizePrivateKey(key ?? '');
+  if (key) {
+    const problem = checkPrivateKey(normalized);
+    if (problem) errors.push(problem);
+  }
+  return { email: email ?? '', key: normalized };
+}
 
 export function parseFields(raw: string): { fields: FieldKey[]; unknown: string[] } {
   const tokens = raw
@@ -81,6 +137,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   if (!isValidTimeZone(e.TIMEZONE)) errors.push(`TIMEZONE: noto'g'ri vaqt zonasi (${e.TIMEZONE})`);
   if (e.CHANNEL_1_ID === e.CHANNEL_2_ID) errors.push("CHANNEL_1_ID va CHANNEL_2_ID bir xil bo'lmasin");
 
+  const google = resolveGoogleCredentials(e, errors);
+
   const { fields, unknown } = parseFields(e.REGISTRATION_FIELDS);
   if (unknown.length > 0) errors.push(`REGISTRATION_FIELDS: noma'lum maydon(lar): ${unknown.join(', ')}`);
 
@@ -97,8 +155,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     ],
     googleSpreadsheetId: e.GOOGLE_SPREADSHEET_ID,
     googleSheetName: e.GOOGLE_SHEET_NAME,
-    googleServiceAccountEmail: e.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    googlePrivateKey: e.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    googleServiceAccountEmail: google.email,
+    googlePrivateKey: google.key,
     adminIds: adminTokens.map(Number),
     timezone: e.TIMEZONE,
     logLevel: e.LOG_LEVEL,

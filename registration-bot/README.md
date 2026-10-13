@@ -52,6 +52,8 @@ Obunani tekshirish uchun bot **ikkala kanalda ham administrator** bo'lishi shart
 6. Google Sheets'da yangi jadval yarating. Brauzer manzilidagi `/d/` va `/edit` orasidagi uzun ID → `GOOGLE_SPREADSHEET_ID`.
 7. Jadvalni **Share** qiling. `client_email` ni **Editor** (muharrir) huquqi bilan qo'shing.
 
+**Osonroq usul:** `GOOGLE_SERVICE_ACCOUNT_EMAIL` va `GOOGLE_PRIVATE_KEY` o'rniga bitta o'zgaruvchi `GOOGLE_SERVICE_ACCOUNT_JSON` ga JSON faylning **butun mazmunini** (`{` dan `}` gacha) qo'yish mumkin. Bu private key'ni qo'lda ajratib olishda yuz beradigan xatolardan qutqaradi. Ikkala usul ham bir vaqtda berilsa, JSON ishlatiladi.
+
 Bot birinchi ishga tushganda varaq (`GOOGLE_SHEET_NAME`, standart `Registrations`) yo'q bo'lsa yaratadi va 14 ta sarlavhani yozadi. Sarlavhalar boshqacha bo'lsa, bot ishga tushmaydi — ma'lumot noto'g'ri ustunga tushib qolmasligi uchun.
 
 Ustunlar tartibi: `ID`, `Created At`, `Telegram User ID`, `Telegram Username`, `First Name`, `Last Name`, `Phone`, `Birth Date`, `Gender`, `Region`, `District`, `Additional Info`, `Subscription Verified`, `Registration Status`.
@@ -195,6 +197,8 @@ Jadvalda har bir yangi ro'yxatdan o'tgan odam uchun qator paydo bo'ladi. `Subscr
 Muammo bo'lsa, loglarni tekshiring:
 
 - `Obuna tekshiruvi xatosi` — botni kanalga admin qiling yoki kanal ID'sini tekshiring.
+- `GOOGLE_PRIVATE_KEY o'qib bo'lmadi` yoki `DECODER routines::unsupported` — kalit noto'g'ri nusxalangan (kesilgan, qo'shtirnoq bilan, satrlari buzilgan). `GOOGLE_SERVICE_ACCOUNT_JSON` usulidan foydalaning.
+- `403 The caller does not have permission` — jadval service account emailiga **Editor** huquqi bilan ulashilmagan yoki `GOOGLE_SPREADSHEET_ID` boshqa faylniki.
 - `Google Sheets'ga ulanib bo'lmadi` — service account emaili jadvalga ulanganmi, Sheets API yoqilganmi.
 - `Ro'yxatga yozishda xato` — foydalanuvchiga "🔁 Qayta urinish" tugmasi ko'rsatiladi. Ma'lumot yo'qolmaydi.
 
