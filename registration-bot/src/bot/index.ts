@@ -105,6 +105,9 @@ export function createBot(deps: BotDeps): Telegraf {
     }
   };
 
+  const adminContact = () => (config.adminContactUrl ? kb.adminContactKeyboard(config.adminContactUrl) : undefined);
+  const sayAlreadyRegistered = (ctx: Context) => say(ctx, TEXT.alreadyRegistered, adminContact());
+
   const ack = (ctx: Context, text?: string) => ctx.answerCbQuery(text).catch(() => undefined);
 
   const verify = (uid: number): Promise<SubscriptionReport> =>
@@ -190,7 +193,7 @@ export function createBot(deps: BotDeps): Telegraf {
     const uid = session.telegramUserId;
     const userHash = hashId(uid);
     if (session.status === 'completed') {
-      await say(ctx, TEXT.alreadyRegistered);
+      await sayAlreadyRegistered(ctx);
       return;
     }
     if (session.status !== 'in_progress' || !allAnswered(session)) return;
@@ -199,7 +202,7 @@ export function createBot(deps: BotDeps): Telegraf {
     const invalid = findInvalidAnswer(session.answers);
     if (invalid) {
       logger.error({ userHash, question: invalid.key }, "Saqlangan javob tekshiruvdan o'tmadi");
-      await say(ctx, TEXT.invalidStored);
+      await say(ctx, TEXT.invalidStored, adminContact());
       return;
     }
     const saving: UserSession = { ...session, status: 'saving' };
@@ -211,7 +214,7 @@ export function createBot(deps: BotDeps): Telegraf {
       if (await registry.isRegistered(uid)) {
         markCompleted(saving);
         logger.info({ userHash }, 'Anketa avval topshirilgan');
-        await say(ctx, TEXT.alreadyRegistered);
+        await sayAlreadyRegistered(ctx);
         return;
       }
       // 4. Obunani qayta tekshirish
@@ -233,7 +236,8 @@ export function createBot(deps: BotDeps): Telegraf {
       // 6. Faqat shundan keyin yakunlangan deb belgilanadi
       markCompleted(saving);
       logger.info({ userHash, outcome }, 'Anketa yakunlandi');
-      await say(ctx, outcome === 'saved' ? TEXT.success : TEXT.alreadyRegistered);
+      if (outcome === 'saved') await say(ctx, TEXT.success);
+      else await sayAlreadyRegistered(ctx);
     } catch (err) {
       logger.error({ userHash, err: describeError(err) }, 'Anketani saqlashda xato');
       backToProgress();
@@ -244,7 +248,7 @@ export function createBot(deps: BotDeps): Telegraf {
   /** Sessiya holatiga qarab foydalanuvchini to'g'ri joyga qaytaradi. */
   const continueSession = async (ctx: Context, session: UserSession): Promise<void> => {
     if (session.status === 'completed') {
-      await say(ctx, TEXT.alreadyRegistered);
+      await sayAlreadyRegistered(ctx);
       return;
     }
     if (session.status === 'saving') {
@@ -350,7 +354,7 @@ export function createBot(deps: BotDeps): Telegraf {
         return;
       }
       if (await registeredInSheets(uid)) {
-        await say(ctx, TEXT.alreadyRegistered);
+        await sayAlreadyRegistered(ctx);
         return;
       }
       sessions.save(session ?? newSession(uid, ctx.from.username ?? '', now().getTime()));
@@ -393,7 +397,7 @@ export function createBot(deps: BotDeps): Telegraf {
       const session = sessions.get(uid);
       const q = session ? currentQuestion(session) : null;
       if (!session || !q) {
-        if (session?.status === 'completed') await say(ctx, TEXT.alreadyRegistered);
+        if (session?.status === 'completed') await sayAlreadyRegistered(ctx);
         else if (session?.status === 'saving') await say(ctx, TEXT.saving);
         else if (session?.status === 'awaiting_subscription') await say(ctx, TEXT.subscribeHint, kb.subscribeKeyboard(config.channels));
         else if (session && allAnswered(session)) await finalize(ctx, session);
@@ -497,7 +501,7 @@ export function createBot(deps: BotDeps): Telegraf {
       }
       if (!(await gate(ctx, uid))) return;
       if (await registeredInSheets(uid)) {
-        await say(ctx, TEXT.alreadyRegistered);
+        await sayAlreadyRegistered(ctx);
         return;
       }
       sessions.save(session ?? newSession(uid, ctx.from?.username ?? '', now().getTime()));
@@ -515,7 +519,7 @@ export function createBot(deps: BotDeps): Telegraf {
       }
       if (!(await gate(ctx, uid))) return;
       if (await registeredInSheets(uid)) {
-        await say(ctx, TEXT.alreadyRegistered);
+        await sayAlreadyRegistered(ctx);
         return;
       }
       const started: UserSession = {

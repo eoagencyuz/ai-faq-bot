@@ -609,6 +609,7 @@ describe('Google Sheets', () => {
     await completeQuestionnaire(h);
     await h.handle(text('/start'));
     expect(lastText(h)).toContain('allaqachon topshirgansiz');
+    expect(h.lastMessage()!.payload.reply_markup.inline_keyboard[0][0]).toEqual({ text: '👤 Administrator', url: 'https://t.me/admin_kontakt' });
     await h.handle(press('reg:start'));
     await h.handle(press('fin:retry'));
     await h.handle(press('n:20'));

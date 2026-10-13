@@ -38,6 +38,7 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   SESSION_TTL_HOURS: z.coerce.number().positive().max(720).default(24),
   SESSION_FILE: z.string().min(1).default('./data/sessions.json'),
+  ADMIN_CONTACT_URL: emptyAsUndefined(channelUrlSchema),
   PORT: z.coerce.number().int().min(1).max(65535).optional(),
 });
 
@@ -131,5 +132,6 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
     sessionTtlHours: e.SESSION_TTL_HOURS,
     sessionFile: e.SESSION_FILE,
     port: e.PORT,
+    adminContactUrl: e.ADMIN_CONTACT_URL,
   };
 }

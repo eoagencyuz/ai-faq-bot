@@ -25,6 +25,7 @@ export function baseEnv(overrides: Record<string, string | undefined> = {}): Rec
     GOOGLE_SERVICE_ACCOUNT_EMAIL: 'bot@loyiha.iam.gserviceaccount.com',
     GOOGLE_PRIVATE_KEY: TEST_PRIVATE_KEY.replace(/\n/g, '\\n'),
     ADMIN_IDS: '111111111, 222222222',
+    ADMIN_CONTACT_URL: 'https://t.me/admin_kontakt',
     TIMEZONE: 'Asia/Tashkent',
     LOG_LEVEL: 'info',
     ...overrides,

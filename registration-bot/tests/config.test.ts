@@ -90,6 +90,14 @@ describe('kanal nomlari', () => {
   });
 });
 
+describe('ADMIN_CONTACT_URL', () => {
+  it("ixtiyoriy, faqat t.me havolasi", () => {
+    expect(parseConfig(baseEnv({ ADMIN_CONTACT_URL: '' })).adminContactUrl).toBeUndefined();
+    expect(parseConfig(baseEnv()).adminContactUrl).toBe('https://t.me/admin_kontakt');
+    expect(() => parseConfig(baseEnv({ ADMIN_CONTACT_URL: 'http://evil.example' }))).toThrow(ConfigError);
+  });
+});
+
 describe('PORT', () => {
   it("berilmasa undefined, berilsa raqam bo'ladi", () => {
     expect(parseConfig(baseEnv()).port).toBeUndefined();

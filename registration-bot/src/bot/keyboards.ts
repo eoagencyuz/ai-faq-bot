@@ -34,6 +34,10 @@ export const subscribeKeyboard = (channels: ChannelConfig[]): InlineKeyboardMark
   ],
 });
 
+export const adminContactKeyboard = (url: string): InlineKeyboardMarkup => ({
+  inline_keyboard: [[link('👤 Administrator', url)]],
+});
+
 export const startKeyboard: InlineKeyboardMarkup = { inline_keyboard: [[cb('📝 Anketani boshlash', 'reg:start', 'success')]] };
 
 export const retryKeyboard = (data: string): InlineKeyboardMarkup => ({

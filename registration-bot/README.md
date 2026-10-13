@@ -106,6 +106,7 @@ cp .env.example .env
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ha* | Service account JSON'i (butun mazmuni) |
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | ha* | yoki alohida: service account emaili |
 | `GOOGLE_PRIVATE_KEY` | ha* | yoki alohida: private key |
+| `ADMIN_CONTACT_URL` | yo'q | “👤 Administrator” tugmasi havolasi, masalan `https://t.me/abdiraimov_e` |
 | `ADMIN_IDS` | ha | Admin Telegram ID lari, vergul bilan: `111,222` |
 | `TIMEZONE` | yo'q | Standart `Asia/Tashkent` |
 | `SESSION_TTL_HOURS` | yo'q | Tugallanmagan anketa necha soat faolsiz saqlanadi, standart 24 |

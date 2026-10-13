@@ -21,4 +21,6 @@ export interface Config {
   sessionFile: string;
   /** Ixtiyoriy: Render kabi hostinglar HTTP port talab qilsa, health-server shu portda ishlaydi. */
   port: number | undefined;
+  /** Ixtiyoriy: "👤 Administrator" tugmasi havolasi (https://t.me/...). */
+  adminContactUrl: string | undefined;
 }
