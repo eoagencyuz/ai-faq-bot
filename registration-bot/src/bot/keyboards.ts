@@ -28,7 +28,8 @@ export const hasStyles = (markup: Markup): boolean => JSON.stringify(markup).inc
 
 export const subscribeKeyboard = (channels: ChannelConfig[]): InlineKeyboardMarkup => ({
   inline_keyboard: [
-    ...channels.map((c): InlineKeyboardButton[] => [link(`📢 ${c.name}ga obuna bo'lish`, c.url, 'primary')]),
+    // Kanal tugmalari rangsiz (Telegram mavzusidagi oddiy rang), faqat tekshirish tugmasi yashil
+    ...channels.map((c, i): InlineKeyboardButton[] => [link(`${i + 1}. ${c.name} — obuna bo‘lish`, c.url)]),
     [cb('✅ Obunani tekshirish', 'sub:check', 'success')],
   ],
 });

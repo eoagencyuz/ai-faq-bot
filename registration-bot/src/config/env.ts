@@ -23,10 +23,10 @@ const schema = z.object({
     .regex(/^\d{6,}:[A-Za-z0-9_-]{30,}$/, "BOT_TOKEN BotFather bergan to'liq token bo'lishi kerak"),
   CHANNEL_1_ID: channelIdSchema,
   CHANNEL_1_URL: channelUrlSchema,
-  CHANNEL_1_NAME: z.string().trim().min(1).max(40).default('1-kanal'),
+  CHANNEL_1_NAME: emptyAsUndefined(z.string().trim().min(1).max(40)),
   CHANNEL_2_ID: channelIdSchema,
   CHANNEL_2_URL: channelUrlSchema,
-  CHANNEL_2_NAME: z.string().trim().min(1).max(40).default('2-kanal'),
+  CHANNEL_2_NAME: emptyAsUndefined(z.string().trim().min(1).max(40)),
   GOOGLE_SPREADSHEET_ID: z.string().min(20, "GOOGLE_SPREADSHEET_ID noto'g'ri"),
   GOOGLE_SHEET_NAME: z.string().trim().min(1).max(100).default('Media_AI'),
   // Ikki usul: alohida (EMAIL + PRIVATE_KEY) yoki butun service account JSON'i (GOOGLE_SERVICE_ACCOUNT_JSON)
@@ -90,6 +90,11 @@ function resolveGoogleCredentials(
   return { email: email ?? '', key: normalized };
 }
 
+/** Nom berilmasa: ochiq kanal uchun @username, yopiq kanal uchun "N-kanal". */
+function channelName(name: string | undefined, id: string, n: number): string {
+  return name ?? (id.startsWith('@') ? id : `${n}-kanal`);
+}
+
 /** Muhit o'zgaruvchilarini tekshiradi. Xato bo'lsa, qiymatlarni emas, faqat nomlarini ko'rsatadi. */
 export function parseConfig(env: Record<string, string | undefined>): Config {
   const parsed = schema.safeParse(env);
@@ -113,8 +118,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   return {
     botToken: e.BOT_TOKEN,
     channels: [
-      { key: 'channel1', id: e.CHANNEL_1_ID, url: e.CHANNEL_1_URL, name: e.CHANNEL_1_NAME },
-      { key: 'channel2', id: e.CHANNEL_2_ID, url: e.CHANNEL_2_URL, name: e.CHANNEL_2_NAME },
+      { key: 'channel1', id: e.CHANNEL_1_ID, url: e.CHANNEL_1_URL, name: channelName(e.CHANNEL_1_NAME, e.CHANNEL_1_ID, 1) },
+      { key: 'channel2', id: e.CHANNEL_2_ID, url: e.CHANNEL_2_URL, name: channelName(e.CHANNEL_2_NAME, e.CHANNEL_2_ID, 2) },
     ],
     googleSpreadsheetId: e.GOOGLE_SPREADSHEET_ID,
     googleSheetName: e.GOOGLE_SHEET_NAME,

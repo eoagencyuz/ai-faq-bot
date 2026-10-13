@@ -83,6 +83,13 @@ describe('Google kalit', () => {
   });
 });
 
+describe('kanal nomlari', () => {
+  it("nom berilmasa, @username ishlatiladi", () => {
+    const config = parseConfig(baseEnv({ CHANNEL_1_NAME: undefined, CHANNEL_2_NAME: '' }));
+    expect(config.channels.map((c) => c.name)).toEqual(['@kanal_bir', '2-kanal']);
+  });
+});
+
 describe('PORT', () => {
   it("berilmasa undefined, berilsa raqam bo'ladi", () => {
     expect(parseConfig(baseEnv()).port).toBeUndefined();
