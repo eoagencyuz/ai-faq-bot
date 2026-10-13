@@ -663,7 +663,7 @@ describe('tugma ranglari', () => {
     const h = harness();
     await h.handle(text('/start'));
     const rows = h.lastMessage()!.payload.reply_markup.inline_keyboard as Array<Array<Record<string, string>>>;
-    expect(rows[0]![0]).toEqual({ text: '1. 1-kanal — obuna bo‘lish', url: 'https://t.me/kanal_bir' });
+    expect(rows[0]![0]).toEqual({ text: '1. 1-kanal', url: 'https://t.me/kanal_bir' });
     expect(rows[1]![0]!.style).toBeUndefined();
     expect(rows[2]![0]).toMatchObject({ callback_data: 'sub:check', style: 'success' });
   });
