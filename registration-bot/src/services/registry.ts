@@ -105,24 +105,50 @@ export function toRow(record: RegistrationRecord, timeZone: string): string[] {
 
 export type SaveOutcome = 'saved' | 'duplicate';
 
+/**
+ * Anketalar ro'yxati. Google Sheets o'qish kvotasi cheklangan (daqiqasiga ~60 so'rov), shuning uchun
+ * qatorlar xotirada qisqa muddat keshlanadi va bir vaqtdagi so'rovlar bitta o'qishga birlashtiriladi.
+ * Varaqqa faqat shu bot yozadi, shuning uchun saqlangan qator keshga darhol qo'shiladi.
+ */
 export class RegistrationRegistry {
   private readonly locks = new Map<number, Promise<unknown>>();
+  private cache: { rows: string[][]; at: number } | null = null;
+  private inflight: Promise<string[][]> | null = null;
 
   constructor(
     private readonly sheets: SheetsPort,
     private readonly timeZone: string,
+    private readonly cacheMs = 30_000,
+    private readonly now: () => number = () => Date.now(),
   ) {}
 
   verify(): Promise<void> {
     return this.sheets.verify();
   }
 
-  listRows(): Promise<string[][]> {
-    return this.sheets.readRows();
+  /** `fresh` — keshni chetlab, varaqni qayta o'qish. */
+  private async rows(fresh = false): Promise<string[][]> {
+    if (!fresh && this.cache && this.now() - this.cache.at < this.cacheMs) return this.cache.rows;
+    if (!this.inflight) {
+      this.inflight = this.sheets
+        .readRows()
+        .then((rows) => {
+          this.cache = { rows, at: this.now() };
+          return rows;
+        })
+        .finally(() => {
+          this.inflight = null;
+        });
+    }
+    return this.inflight;
   }
 
-  async isRegistered(userId: number): Promise<boolean> {
-    const rows = await this.sheets.readRows();
+  async listRows(): Promise<string[][]> {
+    return (await this.rows()).map((r) => [...r]);
+  }
+
+  async isRegistered(userId: number, fresh = false): Promise<boolean> {
+    const rows = await this.rows(fresh);
     return rows.some((r) => r[COL.USER_ID] === String(userId));
   }
 
@@ -141,13 +167,16 @@ export class RegistrationRegistry {
 
   private async saveOnce(record: RegistrationRecord): Promise<SaveOutcome> {
     if (await this.isRegistered(record.userId)) return 'duplicate';
+    const row = toRow(record, this.timeZone);
     try {
-      await this.sheets.appendRow(toRow(record, this.timeZone));
+      await this.sheets.appendRow(row);
     } catch (err) {
-      const exists = await this.isRegistered(record.userId).catch(() => false);
+      // Noaniq xato: qator yozilgan bo'lishi mumkin — keshsiz tekshiramiz
+      const exists = await this.isRegistered(record.userId, true).catch(() => false);
       if (exists) return 'saved';
       throw err;
     }
+    if (this.cache) this.cache.rows = [...this.cache.rows, row];
     return 'saved';
   }
 }

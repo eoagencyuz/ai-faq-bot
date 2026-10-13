@@ -10,7 +10,8 @@ export interface SessionSheetPort {
   /** Sarlavhasiz qatorlar; `row` — varaqdagi qator raqami (1 dan, sarlavha 1-qator). */
   readAll(): Promise<Array<{ row: number; values: string[] }>>;
   writeRows(updates: Array<{ row: number; values: string[] }>): Promise<void>;
-  appendRows(rows: string[][]): Promise<void>;
+  /** Birinchi qo'shilgan qator raqamini qaytaradi (noma'lum bo'lsa null). */
+  appendRows(rows: string[][]): Promise<number | null>;
 }
 
 /**
@@ -99,20 +100,24 @@ export class SessionBackup {
       if (!this.mapLoaded) await this.loadMap();
       const updates: Array<{ row: number; values: string[] }> = [];
       const appends: string[][] = [];
+      const appendedUsers: number[] = [];
       for (const [userId, session] of batch) {
         const values = session
           ? [String(userId), new Date(session.updatedAt).toISOString(), JSON.stringify(session)]
           : ['', '', ''];
         const row = this.rowByUser.get(userId);
         if (row !== undefined) updates.push({ row, values });
-        else if (session) appends.push(values);
-        if (!session) this.rowByUser.delete(userId);
+        else if (session) {
+          appends.push(values);
+          appendedUsers.push(userId);
+        }
       }
       if (updates.length > 0) await this.port.writeRows(updates);
+      for (const [userId, session] of batch) if (!session) this.rowByUser.delete(userId);
       if (appends.length > 0) {
-        await this.port.appendRows(appends);
-        // Yangi qatorlar raqamini bilish uchun xaritani qayta o'qiymiz
-        await this.loadMap();
+        const first = await this.port.appendRows(appends);
+        if (first === null) await this.loadMap();
+        else appendedUsers.forEach((userId, i) => this.rowByUser.set(userId, first + i));
       }
     } catch (err) {
       // Yozilmagan o'zgarishlar keyingi urinishga qaytariladi (shu orada yangisi kelmagan bo'lsa)

@@ -714,3 +714,39 @@ describe('admin buyruqlari', () => {
     expect(h.texts()).toHaveLength(0);
   });
 });
+
+describe('yuklama', () => {
+  it("100 kishi bir vaqtda to'ldirsa, har biri bir marta yoziladi", async () => {
+    const h = harness();
+    const fill = async (uid: number) => {
+      const c = (q: number, ...opts: number[]) => async () => {
+        for (const o of opts) await h.handle(press(`a:${q}:${o}`, uid));
+        await h.handle(press(`n:${q}`, uid));
+      };
+      const steps: Array<() => Promise<void>> = [
+        () => h.handle(text('/start', uid)),
+        () => h.handle(press('sub:check', uid)),
+        () => h.handle(press('reg:start', uid)),
+        () => h.handle(text('Aliyev Vali', uid)),
+        () => h.handle(text('+998901234567', uid)),
+        () => h.handle(contact('+998901234567', uid, uid)),
+        c(3, 0), c(4, 0), c(5, 0), c(7, 0), c(8, 0), c(9, 0),
+        () => h.handle(text(MOTIVATION, uid)),
+        c(11, 0), c(12, 0), c(13, 1), c(14, 0), c(15, 0), c(16, 0), c(17, 0),
+        () => h.handle(text(GOAL, uid)),
+        c(19, 0),
+        // Oxirgi savolda "Keyingi" ikki marta parallel bosiladi
+        async () => {
+          await h.handle(press('a:20:0', uid));
+          await Promise.all([h.handle(press('n:20', uid)), h.handle(press('n:20', uid))]);
+        },
+      ];
+      for (const step of steps) await step();
+    };
+    const users = Array.from({ length: 100 }, (_, i) => 1_000 + i);
+    await Promise.all(users.map(fill));
+    expect(h.rows).toHaveLength(100);
+    expect(new Set(h.rows.map((r) => r[SHEET_HEADERS.indexOf('Telegram User ID')])).size).toBe(100);
+    expect(h.texts().filter((t) => t === SUCCESS)).toHaveLength(100);
+  }, 60_000);
+});

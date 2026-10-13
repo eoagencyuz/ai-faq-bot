@@ -29,7 +29,9 @@ function memorySheet() {
         throw new Error('503');
       }
       calls.append++;
+      const first = rows.length + 2;
       rows.push(...newRows.map((r) => [...r]));
+      return first;
     },
   };
   return { port, rows, calls, failNext: () => (failNext = true) };
@@ -101,6 +103,23 @@ describe('SessionBackup', () => {
     await backup.flush();
     expect(sheet.rows).toHaveLength(1);
     expect(backup.pending).toBe(0);
+  });
+
+  it("qator raqami noma'lum bo'lsa, xarita qayta o'qiladi va keyingi yozuv o'sha qatorga tushadi", async () => {
+    const sheet = memorySheet();
+    const append = sheet.port.appendRows;
+    sheet.port.appendRows = async (rows) => {
+      await append(rows);
+      return null;
+    };
+    const backup = new SessionBackup(sheet.port, logger);
+    backup.mark(1, inProgress(1));
+    backup.mark(2, inProgress(2));
+    await backup.flush();
+    backup.mark(2, { ...inProgress(2), currentQuestionIndex: 9 });
+    await backup.flush();
+    expect(sheet.rows).toHaveLength(2);
+    expect(JSON.parse(sheet.rows[1]![2]!).currentQuestionIndex).toBe(9);
   });
 
   it("o'zgarish bo'lmasa, API chaqirilmaydi", async () => {

@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     await backup.verify();
     await restoreFromBackup('startup');
     sessions.onChange = (userId, session) => backup.mark(userId, session);
-    backup.start(5_000);
+    backup.start(10_000);
     backupEnabled = true;
   } catch (err) {
     logger.error({ err: describeError(err) }, "Sessiyalar zaxirasi o'chirildi: varaqni sozlab bo'lmadi");
@@ -96,6 +96,7 @@ async function main(): Promise<void> {
     registry,
     logger,
     startedAt: new Date(),
+    detachUpdates: true,
     fetchMember: fetchMemberVia(() => botRef as Telegraf),
   });
   botRef = bot;

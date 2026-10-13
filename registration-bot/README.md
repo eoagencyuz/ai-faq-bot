@@ -253,6 +253,7 @@ docker run -d --name kiu-media-ai --restart unless-stopped \
 - **Shaxsiy ma'lumot.** Telefon raqamlari logga yozilmaydi; foydalanuvchi ID'si xeshlanadi. Ma'lumotlar faqat anketani ko'rib chiqish va bog'lanish uchun ishlatiladi.
 - **Sessiya fayli.** `data/sessions.json` — atomik yoziladi (tmp + rename), huquqi `600`. Zaxira nusxasi `<GOOGLE_SHEET_NAME>_sessions` varag'ida (shaxsiy ma'lumot bor — jadvalni faqat kerakli odamlarga ulashing).
 - **HTML.** Foydalanuvchi matnlari xabarlarda escape qilinadi. Tugma ma'lumotlari va foydalanuvchi ID'si server tomonida tekshiriladi.
+- **Ko'p foydalanuvchi.** Har bir xabar fonda bajariladi — sekin Google so'rovi boshqa foydalanuvchilarni kutdirmaydi; bitta foydalanuvchining xabarlari esa navbat bilan. Anketalar ro'yxati 30 soniya keshlanadi va bir vaqtdagi so'rovlar bitta o'qishga birlashadi (Google Sheets kvotasi daqiqasiga ~60 so'rov). Sessiyalar zaxirasi 10 soniyada bir marta, bitta paket bilan yoziladi. Testda 100 kishi bir vaqtda to'ldirganda har biri bir marta yozildi.
 - **Spam.** Foydalanuvchi 10 soniyada 30 tadan ortiq yangilanish yubora olmaydi. 4000 belgidan uzun xabar rad etiladi.
 
 ## 12. Muammolarni hal qilish

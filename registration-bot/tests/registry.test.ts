@@ -83,6 +83,45 @@ describe('RegistrationRegistry.save', () => {
   });
 });
 
+describe('RegistrationRegistry keshi', () => {
+  it("bir vaqtdagi tekshiruvlar bitta o'qishga birlashadi va keshdan foydalanadi", async () => {
+    const sheets = memorySheets();
+    let reads = 0;
+    const read = sheets.readRows;
+    sheets.readRows = async () => {
+      reads++;
+      return read();
+    };
+    let clock = 0;
+    const registry = new RegistrationRegistry(sheets, 'Asia/Tashkent', 30_000, () => clock);
+    await Promise.all(Array.from({ length: 50 }, (_, i) => registry.isRegistered(i)));
+    expect(reads).toBe(1);
+    await registry.isRegistered(1);
+    expect(reads).toBe(1);
+    clock += 31_000;
+    await registry.isRegistered(1);
+    expect(reads).toBe(2);
+  });
+
+  it("saqlangan qator keshga darhol qo'shiladi (qayta yuborish dublikat bo'lmaydi)", async () => {
+    const sheets = memorySheets();
+    const registry = new RegistrationRegistry(sheets, 'Asia/Tashkent', 60_000, () => 0);
+    expect(await registry.isRegistered(3)).toBe(false);
+    expect(await registry.save(record(3))).toBe('saved');
+    expect(await registry.isRegistered(3)).toBe(true);
+    expect(await registry.save(record(3))).toBe('duplicate');
+    expect(sheets.rows).toHaveLength(1);
+  });
+
+  it('noaniq xatoda keshsiz qayta tekshiriladi', async () => {
+    const sheets = memorySheets({ failNextAppend: 'write-then-throw' });
+    const registry = new RegistrationRegistry(sheets, 'Asia/Tashkent', 60_000, () => 0);
+    await registry.isRegistered(4);
+    expect(await registry.save(record(4))).toBe('saved');
+    expect(sheets.rows).toHaveLength(1);
+  });
+});
+
 describe('toRow', () => {
   const col = (name: (typeof SHEET_HEADERS)[number]) => SHEET_HEADERS.indexOf(name);
 

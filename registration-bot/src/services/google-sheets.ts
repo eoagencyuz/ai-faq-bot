@@ -172,13 +172,16 @@ export class GoogleSessionSheet implements SessionSheetPort {
     });
   }
 
-  async appendRows(rows: string[][]): Promise<void> {
-    await this.api.spreadsheets.values.append({
+  async appendRows(rows: string[][]): Promise<number | null> {
+    const res = await this.api.spreadsheets.values.append({
       spreadsheetId: this.opts.spreadsheetId,
       range: `${this.quoted}!A:C`,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       requestBody: { values: rows },
     });
+    // Masalan: 'Media_AI_sessions'!A12:C14 -> 12
+    const match = /![A-Z]+(\d+)/.exec(res.data.updates?.updatedRange ?? '');
+    return match ? Number(match[1]) : null;
   }
 }

@@ -47,6 +47,12 @@ export interface BotDeps {
   now?: () => Date;
   /** Spamdan himoya: foydalanuvchi uchun oynadagi maksimal update soni. */
   rateLimit?: { limit: number; windowMs: number };
+  /**
+   * true (ishlab chiqarishda): har bir update fonda bajariladi, polling keyingi xabarlarni kutmasdan oladi.
+   * Telegraf bir paketdagi barcha update'larni kutadi — bitta sekin Sheets so'rovi hammani to'xtatib qo'ymasligi uchun.
+   * Bitta foydalanuvchining xabarlari baribir navbat (withLock) bilan ketma-ket bajariladi.
+   */
+  detachUpdates?: boolean;
 }
 
 const MAX_MESSAGE_CHARS = 4000;
@@ -142,8 +148,16 @@ export function createBot(deps: BotDeps): Telegraf {
     }
   };
 
+  /** Javoblar Sheets'da saqlangan — sessiyada faqat holat qoladi (fayl va zaxira kichik bo'lsin). */
   const markCompleted = (session: UserSession) => {
-    sessions.save({ ...session, status: 'completed', pending: { selection: [] } });
+    sessions.save({
+      ...session,
+      status: 'completed',
+      answers: {},
+      answeredQuestions: [],
+      completedQuestions: [],
+      pending: { selection: [] },
+    });
   };
 
   // ---- Savollarni ko'rsatish ----
@@ -324,6 +338,15 @@ export function createBot(deps: BotDeps): Telegraf {
     else await say(ctx, formatStats(stats, config.googleSheetName));
   };
 
+  if (deps.detachUpdates) {
+    bot.use((ctx, next) => {
+      void next().catch((err: unknown) => {
+        logger.error({ err: describeError(err), userHash: hashId(ctx.from?.id ?? 0) }, 'Kutilmagan xato');
+        ctx.reply(TEXT.tempError).catch(() => undefined);
+      });
+    });
+  }
+
   // ---- Umumiy filtr: guruhlar, spam va juda uzun xabarlar ----
   bot.use(async (ctx, next) => {
     if (ctx.chat && ctx.chat.type !== 'private') return;
@@ -490,7 +513,7 @@ export function createBot(deps: BotDeps): Telegraf {
 
   // ---- Inline tugmalar ----
   bot.action('sub:check', async (ctx) => {
-    await ack(ctx);
+    void ack(ctx);
     await userAction(ctx, 'sub:check', async (uid) => {
       const session = sessions.get(uid);
       if (session && session.status !== 'awaiting_subscription') {
@@ -510,7 +533,7 @@ export function createBot(deps: BotDeps): Telegraf {
   });
 
   bot.action('reg:start', async (ctx) => {
-    await ack(ctx);
+    void ack(ctx);
     await userAction(ctx, 'reg:start', async (uid) => {
       const session = sessions.get(uid);
       if (session && session.status !== 'awaiting_subscription') {
@@ -633,7 +656,7 @@ export function createBot(deps: BotDeps): Telegraf {
   });
 
   bot.action('fin:retry', async (ctx) => {
-    await ack(ctx);
+    void ack(ctx);
     await userAction(ctx, 'fin:retry', async (uid) => {
       const session = sessions.get(uid);
       if (!session) {
