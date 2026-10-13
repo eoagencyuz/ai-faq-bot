@@ -51,7 +51,12 @@ Obunani tekshirish uchun bot **ikkala kanalda ham administrator** bo'lishi shart
 
 **Kanal ID'sini olish:** kanalga vaqtincha **@RawDataBot** ni qo'shing, u ko'rsatgan `chat.id` ni oling va botni chiqarib tashlang.
 
-> ⚠️ **To'ldirilishi kerak:** ikkinchi kanalning haqiqiy havolasi (`CHANNEL_2_URL`). Kodda taxminiy qiymat yo'q. Kanal ochiq bo'lsa `https://t.me/<username>`, yopiq bo'lsa kanal sozlamalaridagi invite havola.
+Joriy kanallar:
+
+| | Kanal | `CHANNEL_N_ID` | `CHANNEL_N_URL` |
+|---|---|---|---|
+| 1 | KIU | `@kiu_uz` | `https://t.me/kiu_uz` |
+| 2 | Eldor Abdiraimov | `@eldor_abdiraimov` | `https://t.me/eldor_abdiraimov` |
 
 Bot kanalda admin bo'lmasa, Telegram "chat not found" yoki "not enough rights" xatosini beradi. Bot bunday holatda foydalanuvchini "obuna bo'lmagan" deb emas, **vaqtinchalik xato** deb ko'rsatadi va "🔁 Qayta urinish" tugmasini beradi.
 
