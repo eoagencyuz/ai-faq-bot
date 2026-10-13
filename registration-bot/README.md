@@ -55,7 +55,7 @@ Joriy kanallar:
 
 | | Kanal | `CHANNEL_N_ID` | `CHANNEL_N_URL` |
 |---|---|---|---|
-| 1 | KIU | `@kiu_uz` | `https://t.me/kiu_uz` |
+| 1 | Qarshi xalqaro universiteti | `@kiu_uz` | `https://t.me/kiu_uz` |
 | 2 | Eldor Abdiraimov | `@eldor_abdiraimov` | `https://t.me/eldor_abdiraimov` |
 
 Bot kanalda admin bo'lmasa, Telegram "chat not found" yoki "not enough rights" xatosini beradi. Bot bunday holatda foydalanuvchini "obuna bo'lmagan" deb emas, **vaqtinchalik xato** deb ko'rsatadi va "🔁 Qayta urinish" tugmasini beradi.
