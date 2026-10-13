@@ -91,9 +91,9 @@ function resolveGoogleCredentials(
   return { email: email ?? '', key: normalized };
 }
 
-/** Nom berilmasa: ochiq kanal uchun @username, yopiq kanal uchun "N-kanal". */
-function channelName(name: string | undefined, id: string, n: number): string {
-  return name ?? (id.startsWith('@') ? id : `${n}-kanal`);
+/** Nom berilmasa, o'rinbosar qoladi; haqiqiy nomni bot ishga tushganda Telegram'dan oladi. */
+function channelName(name: string | undefined, n: number): string {
+  return name ?? `${n}-kanal`;
 }
 
 /** Muhit o'zgaruvchilarini tekshiradi. Xato bo'lsa, qiymatlarni emas, faqat nomlarini ko'rsatadi. */
@@ -119,8 +119,8 @@ export function parseConfig(env: Record<string, string | undefined>): Config {
   return {
     botToken: e.BOT_TOKEN,
     channels: [
-      { key: 'channel1', id: e.CHANNEL_1_ID, url: e.CHANNEL_1_URL, name: channelName(e.CHANNEL_1_NAME, e.CHANNEL_1_ID, 1) },
-      { key: 'channel2', id: e.CHANNEL_2_ID, url: e.CHANNEL_2_URL, name: channelName(e.CHANNEL_2_NAME, e.CHANNEL_2_ID, 2) },
+      { key: 'channel1', id: e.CHANNEL_1_ID, url: e.CHANNEL_1_URL, name: channelName(e.CHANNEL_1_NAME, 1) },
+      { key: 'channel2', id: e.CHANNEL_2_ID, url: e.CHANNEL_2_URL, name: channelName(e.CHANNEL_2_NAME, 2) },
     ],
     googleSpreadsheetId: e.GOOGLE_SPREADSHEET_ID,
     googleSheetName: e.GOOGLE_SHEET_NAME,

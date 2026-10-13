@@ -100,7 +100,7 @@ cp .env.example .env
 | `BOT_TOKEN` | ha | BotFather tokeni |
 | `CHANNEL_1_ID`, `CHANNEL_2_ID` | ha | `@username` yoki `-100...` ID |
 | `CHANNEL_1_URL`, `CHANNEL_2_URL` | ha | `https://t.me/...` havolalari |
-| `CHANNEL_1_NAME`, `CHANNEL_2_NAME` | yo'q | Tugmalarda chiqadigan nom (berilmasa — `@username`) |
+| `CHANNEL_1_NAME`, `CHANNEL_2_NAME` | yo'q | Tugmalarda chiqadigan nom. Yozilmasa yoki `1-kanal` bo'lsa, bot kanalning haqiqiy nomini Telegram'dan oladi (bot kanalda admin bo'lishi shart) |
 | `GOOGLE_SPREADSHEET_ID` | ha | Jadval ID'si ("SMM" fayli) |
 | `GOOGLE_SHEET_NAME` | yo'q | Varaq nomi, standart `Media_AI` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | ha* | Service account JSON'i (butun mazmuni) |

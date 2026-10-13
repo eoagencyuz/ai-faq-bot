@@ -5,6 +5,7 @@ import { parseConfig } from './config/env.js';
 import { createBot } from './bot/index.js';
 import { GoogleSessionSheet, GoogleSheetsAdapter } from './services/google-sheets.js';
 import { SessionBackup } from './services/session-backup.js';
+import { resolveChannelNames } from './services/channel-names.js';
 import { RegistrationRegistry } from './services/registry.js';
 import { SessionStore } from './services/session.js';
 import type { MemberFetcher } from './services/subscription.js';
@@ -100,6 +101,9 @@ async function main(): Promise<void> {
     fetchMember: fetchMemberVia(() => botRef as Telegraf),
   });
   botRef = bot;
+
+  // Kanal nomlari sozlamada bo'lmasa (yoki "1-kanal" bo'lsa), Telegram'dagi haqiqiy nom olinadi
+  await resolveChannelNames(config.channels, (id) => bot.telegram.getChat(id) as Promise<{ title?: string }>, logger);
 
   try {
     const me = await bot.telegram.getMe();

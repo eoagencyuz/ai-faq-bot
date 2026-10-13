@@ -84,9 +84,9 @@ describe('Google kalit', () => {
 });
 
 describe('kanal nomlari', () => {
-  it("nom berilmasa, @username ishlatiladi", () => {
+  it("nom berilmasa, o'rinbosar qoladi (bot Telegram'dan haqiqiy nomni oladi)", () => {
     const config = parseConfig(baseEnv({ CHANNEL_1_NAME: undefined, CHANNEL_2_NAME: '' }));
-    expect(config.channels.map((c) => c.name)).toEqual(['@kanal_bir', '2-kanal']);
+    expect(config.channels.map((c) => c.name)).toEqual(['1-kanal', '2-kanal']);
   });
 });
 
