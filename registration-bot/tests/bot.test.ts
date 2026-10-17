@@ -46,6 +46,7 @@ telegramProto.callApi = async (method: string, payload: Record<string, any>) => 
     throw new Error('Bad Request: BUTTON_STYLE_INVALID');
   }
   recorder.sent.push({ method, payload });
+  if (method === 'copyMessage') return { message_id: recorder.messageId++ };
   if (method === 'sendMessage') {
     return {
       message_id: recorder.messageId++,
@@ -109,6 +110,7 @@ function harness(shared?: { dir: string; rows: string[][] }): Harness {
     startedAt: NOW,
     now: () => NOW,
     rateLimit: { limit: 10_000, windowMs: 10_000 },
+    broadcastDelayMs: 0,
   });
 
   const sent: Sent[] = [];
@@ -749,4 +751,59 @@ describe('yuklama', () => {
     expect(new Set(h.rows.map((r) => r[SHEET_HEADERS.indexOf('Telegram User ID')])).size).toBe(100);
     expect(h.texts().filter((t) => t === SUCCESS)).toHaveLength(100);
   }, 60_000);
+});
+
+describe('rassilka', () => {
+  it("admin xabarni tasdiqlagach, anketa topshirgan barcha talabalarga yuboriladi", async () => {
+    const h = harness();
+    await completeQuestionnaire(h);
+    await h.handle(text('/broadcast', ADMIN));
+    expect(lastText(h)).toContain('Rassilka');
+    await h.handle(text('Ertaga soat 15:00 da tanishuv uchrashuvi bo‘ladi.', ADMIN));
+    expect(lastText(h)).toContain('<b>1</b> ta talabaga yuboriladi');
+    expect(markupOf(h.lastMessage())).toContain('bc:send');
+    // Admin matni anketa javobi sifatida qabul qilinmagan
+    expect(h.texts().some((t) => t.includes('Savol 1/21') && t.includes('⚠️'))).toBe(false);
+
+    await h.handle(press('bc:send', ADMIN));
+    const copies = h.sent.filter((s) => s.method === 'copyMessage');
+    expect(copies).toHaveLength(1);
+    expect(copies[0]!.payload).toMatchObject({ chat_id: USER, from_chat_id: ADMIN });
+    expect(lastText(h)).toContain('Rassilka yakunlandi');
+    expect(lastText(h)).toContain('Yetkazildi: <b>1</b>');
+
+    // Tugma qayta bosilsa, ikkinchi marta yuborilmaydi
+    await h.handle(press('bc:send', ADMIN));
+    expect(h.sent.filter((s) => s.method === 'copyMessage')).toHaveLength(1);
+  });
+
+  it('bekor qilish mumkin va hech kimga yuborilmaydi', async () => {
+    const h = harness();
+    await completeQuestionnaire(h);
+    await h.handle(text('/broadcast', ADMIN));
+    await h.handle(text('Sinov xabari', ADMIN));
+    await h.handle(press('bc:cancel', ADMIN));
+    expect(lastText(h)).toContain('bekor qilindi');
+    await h.handle(press('bc:send', ADMIN));
+    expect(h.sent.filter((s) => s.method === 'copyMessage')).toHaveLength(0);
+
+    await h.handle(text('/broadcast', ADMIN));
+    await h.handle(text('/cancel', ADMIN));
+    expect(lastText(h)).toContain('Rassilka bekor qilindi');
+  });
+
+  it('oddiy foydalanuvchi rassilka qila olmaydi', async () => {
+    const h = harness();
+    await h.handle(text('/broadcast'));
+    expect(lastText(h)).toContain('Noma’lum buyruq');
+    await h.handle(press('bc:send'));
+    expect(h.sent.filter((s) => s.method === 'copyMessage')).toHaveLength(0);
+  });
+
+  it("talaba bo'lmasa, rassilka yuborilmaydi", async () => {
+    const h = harness();
+    await h.handle(text('/broadcast', ADMIN));
+    await h.handle(text('Salom', ADMIN));
+    expect(lastText(h)).toContain('talabalar yo‘q');
+  });
 });

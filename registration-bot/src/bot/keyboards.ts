@@ -88,5 +88,10 @@ export const adminKeyboard: InlineKeyboardMarkup = {
     [cb('📊 Statistika', 'admin:stats', 'primary'), cb('👥 Jami', 'admin:total', 'primary')],
     [cb('📅 Bugungi', 'admin:today', 'primary'), cb('🕒 Oxirgilar', 'admin:recent', 'primary')],
     [cb('📄 Google Sheets', 'admin:sheets', 'success'), cb('ℹ️ Bot holati', 'admin:bot', 'primary')],
+    [cb('📣 Rassilka', 'admin:broadcast', 'primary')],
   ],
+};
+
+export const broadcastConfirmKeyboard: InlineKeyboardMarkup = {
+  inline_keyboard: [[cb('✅ Yuborish', 'bc:send', 'success'), cb('❌ Bekor qilish', 'bc:cancel', 'danger')]],
 };

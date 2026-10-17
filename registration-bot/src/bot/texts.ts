@@ -64,6 +64,20 @@ export const TEXT = {
   noCancel:
     'Anketani bekor qilib yoki qayta boshlab bo‘lmaydi. Javob berishni shu savoldan davom ettirishingiz mumkin.',
   adminMenu: '🛠 <b>Admin menyusi</b>',
+  broadcastAsk:
+    '📣 <b>Rassilka</b>\n\nAnketa topshirgan barcha talabalarga yuboriladigan xabarni jo‘nating: matn, rasm, video yoki fayl (izohi bilan).\n\nBekor qilish: /cancel',
+  broadcastPreview: (n: number) =>
+    `👆 Shu xabar <b>${n}</b> ta talabaga yuboriladi. Tasdiqlaysizmi?`,
+  broadcastNoRecipients: 'Hozircha anketa topshirgan talabalar yo‘q — rassilka yuborilmadi.',
+  broadcastStarted: (n: number) => `⏳ Rassilka boshlandi: ${n} ta talaba. Tugagach hisobot yuboriladi.`,
+  broadcastBusy: 'Boshqa rassilka hali davom etyapti. U tugagach qayta urinib ko‘ring.',
+  broadcastCancelled: 'Rassilka bekor qilindi.',
+  broadcastReport: (s: { total: number; sent: number; blocked: number; failed: number }) =>
+    '📣 <b>Rassilka yakunlandi</b>\n\n' +
+    `👥 Jami: <b>${s.total}</b>\n` +
+    `✅ Yetkazildi: <b>${s.sent}</b>\n` +
+    `🚫 Botni bloklagan: <b>${s.blocked}</b>\n` +
+    `⚠️ Xato: <b>${s.failed}</b>`,
   adminSheetsDown: 'Google Sheets bilan bog‘lanib bo‘lmadi. Statistika ko‘rsatilmaydi. Loglarni tekshiring.',
   sheetsOk: '✅ Google Sheets ulanishi ishlayapti.',
   sheetsBad: '❌ Google Sheets bilan muammo bor. Loglarni tekshiring.',

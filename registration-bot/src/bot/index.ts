@@ -13,6 +13,7 @@ import {
 } from '../services/session.js';
 import type { RegistrationRegistry } from '../services/registry.js';
 import { computeStats, recentRows } from '../services/registry.js';
+import { recipientsFromRows, sendBroadcast } from '../services/broadcast.js';
 import { checkSubscriptions, type MemberFetcher, type SubscriptionReport } from '../services/subscription.js';
 import {
   findInvalidAnswer,
@@ -47,6 +48,8 @@ export interface BotDeps {
   now?: () => Date;
   /** Spamdan himoya: foydalanuvchi uchun oynadagi maksimal update soni. */
   rateLimit?: { limit: number; windowMs: number };
+  /** Rassilkada xabarlar orasidagi kutish (ms). Testlarda 0. */
+  broadcastDelayMs?: number;
   /**
    * true (ishlab chiqarishda): har bir update fonda bajariladi, polling keyingi xabarlarni kutmasdan oladi.
    * Telegraf bir paketdagi barcha update'larni kutadi — bitta sekin Sheets so'rovi hammani to'xtatib qo'ymasligi uchun.
@@ -296,7 +299,25 @@ export function createBot(deps: BotDeps): Telegraf {
     return withLock(uid, () => safe(ctx, action, () => fn(uid)));
   };
 
+  // ---- Rassilka (faqat admin): /broadcast -> xabar -> tasdiqlash -> yuborish ----
+  type BroadcastDraft = { stage: 'awaiting' } | { stage: 'confirm'; chatId: number; messageId: number };
+  const broadcastDrafts = new Map<number, BroadcastDraft>();
+  let broadcastRunning = false;
+
+  const askBroadcast = async (ctx: Context, uid: number) => {
+    if (broadcastRunning) {
+      await say(ctx, TEXT.broadcastBusy);
+      return;
+    }
+    broadcastDrafts.set(uid, { stage: 'awaiting' });
+    await say(ctx, TEXT.broadcastAsk);
+  };
+
   const runAdmin = async (ctx: Context, key: string): Promise<void> => {
+    if (key === 'broadcast') {
+      await askBroadcast(ctx, uidOf(ctx));
+      return;
+    }
     if (key === 'sheets') {
       try {
         await registry.verify();
@@ -363,6 +384,29 @@ export function createBot(deps: BotDeps): Telegraf {
     return next();
   });
 
+  // Admin rassilka xabarini yuborayotgan bo'lsa, xabar anketa oqimiga emas, rassilkaga tushadi
+  bot.use(async (ctx, next) => {
+    const uid = ctx.from?.id;
+    const message = ctx.message;
+    if (uid === undefined || !message || !isAdmin(uid) || broadcastDrafts.get(uid)?.stage !== 'awaiting') return next();
+    if ('text' in message && message.text.trim().startsWith('/')) return next();
+    let recipients: number[];
+    try {
+      recipients = recipientsFromRows(await registry.listRows());
+    } catch (err) {
+      logger.error({ err: describeError(err) }, 'Rassilka uchun Google Sheets o‘qilmadi');
+      await say(ctx, TEXT.adminSheetsDown);
+      return;
+    }
+    if (recipients.length === 0) {
+      broadcastDrafts.delete(uid);
+      await say(ctx, TEXT.broadcastNoRecipients);
+      return;
+    }
+    broadcastDrafts.set(uid, { stage: 'confirm', chatId: message.chat.id, messageId: message.message_id });
+    await say(ctx, TEXT.broadcastPreview(recipients.length), kb.broadcastConfirmKeyboard);
+  });
+
   bot.catch((err, ctx) => {
     logger.error({ err: describeError(err), userHash: hashId(ctx.from?.id ?? 0) }, 'Kutilmagan xato');
     ctx.reply(TEXT.tempError).catch(() => undefined);
@@ -385,7 +429,20 @@ export function createBot(deps: BotDeps): Telegraf {
     }),
   );
 
-  bot.command('cancel', (ctx) => userAction(ctx, 'cancel', async () => void (await say(ctx, TEXT.noCancel))));
+  bot.command('cancel', (ctx) => {
+    if (broadcastDrafts.delete(ctx.from.id)) return say(ctx, TEXT.broadcastCancelled).then(() => undefined);
+    return userAction(ctx, 'cancel', async () => void (await say(ctx, TEXT.noCancel)));
+  });
+
+  bot.command('broadcast', (ctx) =>
+    safe(ctx, 'broadcast', async () => {
+      if (!isAdmin(uidOf(ctx))) {
+        await say(ctx, TEXT.unknownCommand);
+        return;
+      }
+      await askBroadcast(ctx, uidOf(ctx));
+    }),
+  );
 
   bot.command('help', (ctx) => userAction(ctx, 'help', async () => void (await say(ctx, TEXT.help))));
 
@@ -672,11 +729,54 @@ export function createBot(deps: BotDeps): Telegraf {
   });
 
   // ---- Admin tugmalari ----
-  bot.action(/^admin:(stats|total|today|recent|sheets|bot)$/, async (ctx) => {
+  bot.action(/^admin:(stats|total|today|recent|sheets|bot|broadcast)$/, async (ctx) => {
     await ack(ctx);
     const uid = uidOf(ctx);
     if (!isAdmin(uid)) return;
     await safe(ctx, 'admin', () => runAdmin(ctx, ctx.match[1] as string));
+  });
+
+  bot.action('bc:cancel', async (ctx) => {
+    await ack(ctx);
+    const uid = uidOf(ctx);
+    if (!isAdmin(uid)) return;
+    broadcastDrafts.delete(uid);
+    await editMarkup(ctx, kb.emptyInline);
+    await say(ctx, TEXT.broadcastCancelled);
+  });
+
+  bot.action('bc:send', async (ctx) => {
+    const uid = uidOf(ctx);
+    const draft = broadcastDrafts.get(uid);
+    if (!isAdmin(uid) || draft?.stage !== 'confirm') {
+      await ack(ctx, TEXT.stale);
+      return;
+    }
+    if (broadcastRunning) {
+      await ack(ctx, TEXT.broadcastBusy);
+      return;
+    }
+    await ack(ctx);
+    broadcastDrafts.delete(uid);
+    broadcastRunning = true;
+    try {
+      await editMarkup(ctx, kb.emptyInline);
+      const recipients = recipientsFromRows(await registry.listRows());
+      await say(ctx, TEXT.broadcastStarted(recipients.length));
+      logger.info({ recipients: recipients.length }, 'Rassilka boshlandi');
+      const stats = await sendBroadcast(
+        recipients,
+        (userId) => ctx.telegram.copyMessage(userId, draft.chatId, draft.messageId),
+        { delayMs: deps.broadcastDelayMs ?? 50 },
+      );
+      logger.info(stats, 'Rassilka yakunlandi');
+      await say(ctx, TEXT.broadcastReport(stats));
+    } catch (err) {
+      logger.error({ err: describeError(err) }, 'Rassilka xatosi');
+      await say(ctx, TEXT.tempError).catch(() => undefined);
+    } finally {
+      broadcastRunning = false;
+    }
   });
 
   // ---- Eski yoki noma'lum tugmalar (masalan, avvalgi versiyadagi "Orqaga") hech narsa qilmaydi ----
