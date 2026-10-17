@@ -65,9 +65,16 @@ export const TEXT = {
     'Anketani bekor qilib yoki qayta boshlab bo‘lmaydi. Javob berishni shu savoldan davom ettirishingiz mumkin.',
   adminMenu: '🛠 <b>Admin menyusi</b>',
   broadcastAsk:
-    '📣 <b>Rassilka</b>\n\nAnketa topshirgan barcha talabalarga yuboriladigan xabarni jo‘nating: matn, rasm, video yoki fayl (izohi bilan).\n\nBekor qilish: /cancel',
-  broadcastPreview: (n: number) =>
-    `👆 Shu xabar <b>${n}</b> ta talabaga yuboriladi. Tasdiqlaysizmi?`,
+    '📣 <b>Rassilka</b>\n\nAnketa topshirgan barcha talabalarga yuboriladigan xabarni jo‘nating: matn, rasm, video yoki fayl (izohi bilan).\n\n' +
+    'Talabaning ismini qo‘yish uchun matnda <code>&lt;FULL NAME&gt;</code> yozing.\n' +
+    'Faqat ayrim talabalarga: <code>/broadcast 8289758059 6593843272 …</code> (Telegram ID’lar).\n\nBekor qilish: /cancel',
+  broadcastAskTargeted: (n: number) =>
+    `📣 <b>Rassilka</b> — ro‘yxatdagi <b>${n}</b> ta ID.\n\nXabarni jo‘nating. Ism uchun matnda <code>&lt;FULL NAME&gt;</code> yozing.\n\nBekor qilish: /cancel`,
+  broadcastPreview: (n: number, missing: number, personalized: boolean) =>
+    (personalized ? '👆 Bu birinchi talabaga qanday ko‘rinishi (har kimga o‘z ismi bilan).\n\n' : '👆 ') +
+    `Xabar <b>${n}</b> ta talabaga yuboriladi.` +
+    (missing > 0 ? `\n⚠️ Ro‘yxatdagi ${missing} ta ID anketa topshirganlar orasida topilmadi — ularga yuborilmaydi.` : '') +
+    '\n\nTasdiqlaysizmi?',
   broadcastNoRecipients: 'Hozircha anketa topshirgan talabalar yo‘q — rassilka yuborilmadi.',
   broadcastStarted: (n: number) => `⏳ Rassilka boshlandi: ${n} ta talaba. Tugagach hisobot yuboriladi.`,
   broadcastBusy: 'Boshqa rassilka hali davom etyapti. U tugagach qayta urinib ko‘ring.',

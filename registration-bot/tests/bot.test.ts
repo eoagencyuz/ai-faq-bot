@@ -800,6 +800,30 @@ describe('rassilka', () => {
     expect(h.sent.filter((s) => s.method === 'copyMessage')).toHaveLength(0);
   });
 
+  it("<FULL NAME> bilan har bir talabaga o'z ismi yuboriladi; ro'yxat bo'yicha faqat tanlanganlarga", async () => {
+    const h = harness();
+    await completeQuestionnaire(h);
+    // Ro'yxatda: anketa topshirgan USER va topshirmagan 999999999
+    await h.handle(text(`/broadcast ${USER}000 999999999`, ADMIN));
+    await h.handle(text('Hurmatli <FULL NAME>!\nSiz keyingi bosqichga o‘tdingiz! 🎉', ADMIN));
+    expect(lastText(h)).toContain('talabalar yo‘q');
+
+    await h.handle(text(`/broadcast 99999 ${USER}`, ADMIN));
+    expect(lastText(h)).toContain('<b>2</b> ta ID');
+    await h.handle(text('Hurmatli <FULL NAME>!\nSiz keyingi bosqichga o‘tdingiz! 🎉', ADMIN));
+    expect(h.texts()).toContain('Hurmatli Aliyev Vali!\nSiz keyingi bosqichga o‘tdingiz! 🎉');
+    expect(lastText(h)).toContain('<b>1</b> ta talabaga yuboriladi');
+    expect(lastText(h)).toContain('1 ta ID anketa topshirganlar orasida topilmadi');
+
+    await h.handle(press('bc:send', ADMIN));
+    const personal = h.sent.filter((s) => s.method === 'sendMessage' && s.payload.chat_id === USER && String(s.payload.text).startsWith('Hurmatli'));
+    expect(personal).toHaveLength(1);
+    expect(personal[0]!.payload.text).toBe('Hurmatli Aliyev Vali!\nSiz keyingi bosqichga o‘tdingiz! 🎉');
+    expect(personal[0]!.payload.parse_mode).toBeUndefined();
+    expect(h.sent.filter((s) => s.method === 'copyMessage')).toHaveLength(0);
+    expect(lastText(h)).toContain('Yetkazildi: <b>1</b>');
+  });
+
   it("talaba bo'lmasa, rassilka yuborilmaydi", async () => {
     const h = harness();
     await h.handle(text('/broadcast', ADMIN));

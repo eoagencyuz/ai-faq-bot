@@ -189,6 +189,8 @@ Sheets vaqtincha ishlamasa, javoblar saqlanib qoladi va “🔁 Qayta urinish”
 - `/admin` — admin menyusi: statistika, jami, bugungi, oxirgi anketalar, Google Sheets holati, bot holati.
 - `/stats` — statistika: jami, bugun, 7 kun, 30 kun (Asia/Tashkent bo'yicha).
 - `/broadcast` — rassilka: anketa topshirgan barcha talabalarga xabar (matn, rasm, video yoki fayl). Bot xabarni ko'rsatadi, “✅ Yuborish” bosilgach navbat bilan yuboradi (sekundiga ~20 ta) va hisobot beradi: yetkazildi, botni bloklagan, xato. Bekor qilish: `/cancel`. Admin menyusida “📣 Rassilka” tugmasi ham bor.
+  - Matnda `<FULL NAME>` (yoki `{ism}`) yozilsa, har bir talabaga o'z ism-familiyasi bilan yuboriladi; avval namuna ko'rsatiladi.
+  - Faqat ayrim talabalarga: `/broadcast 8289758059 6593843272 …` — ro'yxatdagi ID'lardan faqat anketa topshirganlarga yuboriladi, topilmaganlar soni aytiladi.
 
 Oxirgi anketalar ro'yxatida telefon yashirilgan holda ko'rsatiladi (`+99890*****67`). Admin bo'lmagan foydalanuvchi bu buyruqlarni yozsa, “Noma’lum buyruq” javobini oladi. Admin ekanligi faqat server tomonida, `ADMIN_IDS` bo'yicha tekshiriladi.
 

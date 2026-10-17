@@ -13,7 +13,14 @@ import {
 } from '../services/session.js';
 import type { RegistrationRegistry } from '../services/registry.js';
 import { computeStats, recentRows } from '../services/registry.js';
-import { recipientsFromRows, sendBroadcast } from '../services/broadcast.js';
+import {
+  hasNamePlaceholder,
+  namesFromRows,
+  parseIdList,
+  personalize,
+  recipientsFromRows,
+  sendBroadcast,
+} from '../services/broadcast.js';
 import { checkSubscriptions, type MemberFetcher, type SubscriptionReport } from '../services/subscription.js';
 import {
   findInvalidAnswer,
@@ -300,17 +307,27 @@ export function createBot(deps: BotDeps): Telegraf {
   };
 
   // ---- Rassilka (faqat admin): /broadcast -> xabar -> tasdiqlash -> yuborish ----
-  type BroadcastDraft = { stage: 'awaiting' } | { stage: 'confirm'; chatId: number; messageId: number };
+  type BroadcastDraft =
+    | { stage: 'awaiting'; targets?: number[] }
+    | {
+        stage: 'confirm';
+        chatId: number;
+        messageId: number;
+        recipients: number[];
+        /** Ism qo'yiladigan matn (bo'lsa, har kimga alohida matn yuboriladi). */
+        template?: string;
+        names: Record<string, string>;
+      };
   const broadcastDrafts = new Map<number, BroadcastDraft>();
   let broadcastRunning = false;
 
-  const askBroadcast = async (ctx: Context, uid: number) => {
+  const askBroadcast = async (ctx: Context, uid: number, targets?: number[]) => {
     if (broadcastRunning) {
       await say(ctx, TEXT.broadcastBusy);
       return;
     }
-    broadcastDrafts.set(uid, { stage: 'awaiting' });
-    await say(ctx, TEXT.broadcastAsk);
+    broadcastDrafts.set(uid, targets && targets.length > 0 ? { stage: 'awaiting', targets } : { stage: 'awaiting' });
+    await say(ctx, targets && targets.length > 0 ? TEXT.broadcastAskTargeted(targets.length) : TEXT.broadcastAsk);
   };
 
   const runAdmin = async (ctx: Context, key: string): Promise<void> => {
@@ -388,23 +405,38 @@ export function createBot(deps: BotDeps): Telegraf {
   bot.use(async (ctx, next) => {
     const uid = ctx.from?.id;
     const message = ctx.message;
-    if (uid === undefined || !message || !isAdmin(uid) || broadcastDrafts.get(uid)?.stage !== 'awaiting') return next();
+    const draft = uid === undefined ? undefined : broadcastDrafts.get(uid);
+    if (uid === undefined || !message || !isAdmin(uid) || draft?.stage !== 'awaiting') return next();
     if ('text' in message && message.text.trim().startsWith('/')) return next();
-    let recipients: number[];
+    let rows: string[][];
     try {
-      recipients = recipientsFromRows(await registry.listRows());
+      rows = await registry.listRows();
     } catch (err) {
       logger.error({ err: describeError(err) }, 'Rassilka uchun Google Sheets o‘qilmadi');
       await say(ctx, TEXT.adminSheetsDown);
       return;
     }
+    const registered = recipientsFromRows(rows);
+    // Ro'yxat berilgan bo'lsa, faqat anketa topshirganlar orasidan shu ID'larga yuboriladi
+    const known = new Set(registered);
+    const recipients = draft.targets ? draft.targets.filter((id) => known.has(id)) : registered;
+    const missing = draft.targets ? draft.targets.length - recipients.length : 0;
     if (recipients.length === 0) {
       broadcastDrafts.delete(uid);
       await say(ctx, TEXT.broadcastNoRecipients);
       return;
     }
-    broadcastDrafts.set(uid, { stage: 'confirm', chatId: message.chat.id, messageId: message.message_id });
-    await say(ctx, TEXT.broadcastPreview(recipients.length), kb.broadcastConfirmKeyboard);
+    const nameMap = namesFromRows(rows);
+    const names: Record<string, string> = {};
+    for (const id of recipients) names[id] = nameMap.get(id) ?? '';
+    const template = 'text' in message && hasNamePlaceholder(message.text) ? message.text : undefined;
+    broadcastDrafts.set(uid, { stage: 'confirm', chatId: message.chat.id, messageId: message.message_id, recipients, template, names });
+    if (template) {
+      const first = recipients[0] as number;
+      // Namuna: birinchi talabaga qanday ko'rinishi (HTML'siz, oddiy matn)
+      await ctx.reply(personalize(template, names[first] || 'Talaba'));
+    }
+    await say(ctx, TEXT.broadcastPreview(recipients.length, missing, Boolean(template)), kb.broadcastConfirmKeyboard);
   });
 
   bot.catch((err, ctx) => {
@@ -440,7 +472,8 @@ export function createBot(deps: BotDeps): Telegraf {
         await say(ctx, TEXT.unknownCommand);
         return;
       }
-      await askBroadcast(ctx, uidOf(ctx));
+      // /broadcast 8289758059 6593843272 ... — faqat shu talabalarga
+      await askBroadcast(ctx, uidOf(ctx), parseIdList(ctx.message.text.replace(/^\/broadcast(@\w+)?/, '')));
     }),
   );
 
@@ -761,12 +794,15 @@ export function createBot(deps: BotDeps): Telegraf {
     broadcastRunning = true;
     try {
       await editMarkup(ctx, kb.emptyInline);
-      const recipients = recipientsFromRows(await registry.listRows());
+      const { recipients, template, names } = draft;
       await say(ctx, TEXT.broadcastStarted(recipients.length));
-      logger.info({ recipients: recipients.length }, 'Rassilka boshlandi');
+      logger.info({ recipients: recipients.length, personalized: Boolean(template) }, 'Rassilka boshlandi');
       const stats = await sendBroadcast(
         recipients,
-        (userId) => ctx.telegram.copyMessage(userId, draft.chatId, draft.messageId),
+        (userId) =>
+          template
+            ? ctx.telegram.sendMessage(userId, personalize(template, names[userId] || 'Talaba'))
+            : ctx.telegram.copyMessage(userId, draft.chatId, draft.messageId),
         { delayMs: deps.broadcastDelayMs ?? 50 },
       );
       logger.info(stats, 'Rassilka yakunlandi');

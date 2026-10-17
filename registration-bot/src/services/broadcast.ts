@@ -83,3 +83,32 @@ export async function sendBroadcast(
   }
   return stats;
 }
+
+/** Ism o'rniga qo'yiladigan belgilar: <FULL NAME>, {name}, {ism}. */
+const NAME_PLACEHOLDER = /<FULL NAME>|\{name\}|\{ism\}/gi;
+
+export const hasNamePlaceholder = (text: string): boolean => new RegExp(NAME_PLACEHOLDER.source, 'i').test(text);
+
+export const personalize = (template: string, fullName: string): string =>
+  template.replace(new RegExp(NAME_PLACEHOLDER.source, 'gi'), fullName);
+
+/** Telegram ID -> ism-familiya (Sheets'dagi formula himoyasi belgisi olib tashlanadi). */
+export function namesFromRows(rows: string[][]): Map<number, string> {
+  const names = new Map<number, string>();
+  for (const row of rows) {
+    const id = Number(row[COL.USER_ID]);
+    const name = (row[COL.FULL_NAME] ?? '').replace(/^'/, '').trim();
+    if (row[COL.USER_ID] && Number.isSafeInteger(id) && name) names.set(id, name);
+  }
+  return names;
+}
+
+/** Matndan Telegram ID'larni ajratib oladi (bo'shliq, vergul yoki yangi qator bilan). */
+export function parseIdList(text: string): number[] {
+  const ids = new Set<number>();
+  for (const token of text.match(/\d{1,15}/g) ?? []) {
+    const id = Number(token);
+    if (Number.isSafeInteger(id)) ids.add(id);
+  }
+  return [...ids];
+}

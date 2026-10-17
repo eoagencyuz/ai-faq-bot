@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { isUnreachable, recipientsFromRows, sendBroadcast } from '../src/services/broadcast.js';
+import {
+  hasNamePlaceholder,
+  isUnreachable,
+  namesFromRows,
+  parseIdList,
+  personalize,
+  recipientsFromRows,
+  sendBroadcast,
+} from '../src/services/broadcast.js';
 import { COL } from '../src/services/registry.js';
 
 const tgError = (code: number, description: string, retry_after?: number) =>
@@ -69,5 +77,26 @@ describe('sendBroadcast', () => {
   it("yetkazib bo'lmaydigan xatolarni aniqlaydi", () => {
     expect(isUnreachable(tgError(403, 'Forbidden: user is deactivated'))).toBe(true);
     expect(isUnreachable(tgError(400, 'Bad Request: message text is empty'))).toBe(false);
+  });
+});
+
+describe('ism va ro\'yxat', () => {
+  it('<FULL NAME> ni talaba ismi bilan almashtiradi', () => {
+    const t = 'Hurmatli <FULL NAME>!\nSiz keyingi bosqichga o‘tdingiz.';
+    expect(hasNamePlaceholder(t)).toBe(true);
+    expect(personalize(t, 'Aliyev Vali')).toBe('Hurmatli Aliyev Vali!\nSiz keyingi bosqichga o‘tdingiz.');
+    expect(personalize('Salom {ism}', 'Ali')).toBe('Salom Ali');
+    expect(hasNamePlaceholder('Oddiy xabar')).toBe(false);
+  });
+
+  it("Sheets qatoridan ismni oladi (formula himoyasi belgisisiz)", () => {
+    const r = row('8289758059');
+    r[COL.FULL_NAME] = "'Aliyev Vali";
+    expect(namesFromRows([r]).get(8289758059)).toBe('Aliyev Vali');
+  });
+
+  it('ID ro\'yxatini ajratadi (yangi qator, bo\'shliq, vergul)', () => {
+    expect(parseIdList('8289758059\n6593843272, 222816108 8289758059')).toEqual([8289758059, 6593843272, 222816108]);
+    expect(parseIdList('Telegram User ID\n')).toEqual([]);
   });
 });
